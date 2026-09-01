@@ -1,42 +1,167 @@
 'use client';
-import {useEffect,useState} from "react";
-import {QRCodeSVG} from "qrcode.react";
-import {supabase} from "../lib/supabase";
-const levels=["3ème année collège","Tronc Commun","1ère année Bac","2ème année Bac"];
-const tabs=[["home","🏠","Vue d'ensemble"],["students","👨‍🎓","Élèves"],["teachers","👨‍🏫","Professeurs"],["subjects","📚","Matières"],["schedule","🗓️","Emploi du temps"],["qr","📱","QR & Présence"],["payments","💰","Paiements"],["news","📢","Annonces"],["stats","📊","Statistiques"]];
-const id=()=>Math.random().toString(36).slice(2);
-const load=(k:string)=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}};
-export default function Admin(){
- const [tab,setTab]=useState("home"),[ready,setReady]=useState(false);
- const [authReady,setAuthReady]=useState(false),[session,setSession]=useState<any>(null),[isAdmin,setIsAdmin]=useState(false);
- const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[loginError,setLoginError]=useState("");
- useEffect(()=>{let active=true;const check=async(s:any)=>{setSession(s);if(!s){if(active){setIsAdmin(false);setAuthReady(true)};return}const {data}=await supabase.from("admins").select("user_id").eq("user_id",s.user.id).maybeSingle();if(active){setIsAdmin(!!data);setAuthReady(true)}};supabase.auth.getSession().then(({data})=>check(data.session));const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>check(s));return()=>{active=false;subscription.unsubscribe()}},[]);
- const [students,setStudents]=useState<any[]>([]),[studentSubjects,setStudentSubjects]=useState<any[]>([]),[teachers,setTeachers]=useState<any[]>([]),[subjects,setSubjects]=useState<any[]>([]),[schedule,setSchedule]=useState<any[]>([]),[payments,setPayments]=useState<any[]>([]),[news,setNews]=useState<any[]>([]),[presence,setPresence]=useState<any[]>([]),[selected,setSelected]=useState<any>(null);
- const [dbError,setDbError]=useState(""),[studentSearch,setStudentSearch]=useState(""),[studentDetails,setStudentDetails]=useState<any>(null);
- const refresh=async()=>{setReady(false);setDbError("");const [a,h,b,c,d,e,f,g]=await Promise.all([supabase.from("students").select("*").order("created_at",{ascending:false}),supabase.from("student_subjects").select("student_id,subject_id"),supabase.from("teachers").select("*").order("created_at",{ascending:false}),supabase.from("subjects").select("*").order("created_at",{ascending:false}),supabase.from("schedules").select("*").order("created_at",{ascending:false}),supabase.from("payments").select("*").order("created_at",{ascending:false}),supabase.from("announcements").select("*").order("created_at",{ascending:false}),supabase.from("attendance").select("*").order("attended_on",{ascending:false})]);const bad=[a,h,b,c,d,e,f,g].find((x:any)=>x.error);if(bad)setDbError((bad as any).error.message);else{setStudents(a.data||[]);setStudentSubjects(h.data||[]);setTeachers(b.data||[]);setSubjects(c.data||[]);setSchedule(d.data||[]);setPayments(e.data||[]);setNews(f.data||[]);setPresence(g.data||[])}setReady(true)};
- useEffect(()=>{if(session&&isAdmin)refresh()},[session,isAdmin]);
- const del=async(set:any,arr:any[],x:string,table:string)=>{const {error}=await supabase.from(table).delete().eq("id",x);if(error)setDbError(error.message);else await refresh()};
- const add=async(e:any,set:any,arr:any[],type:string)=>{e.preventDefault();setDbError("");let f=new FormData(e.currentTarget),o:any={};f.forEach((v,k)=>{if(v!=="")o[k]=v});let table="";if(type==="student"){table="students";o={full_name:o.name,phone:o.phone||null,email:o.email||null,level:o.level}}if(type==="student"){const fullName=(o.full_name||"").trim();const studentEmail=(o.email||"").trim();const {data:existingStudent,error:existingStudentError}=await supabase.from("students").select("id,full_name,email");if(existingStudentError){setDbError(existingStudentError.message);return}const normalized=(v:string)=>v.trim().replace(/\\s+/g," ").toLocaleLowerCase();const sameName=existingStudent?.some((s:any)=>normalized(s.full_name||"")===normalized(fullName));const sameEmail=studentEmail&&existingStudent?.some((s:any)=>normalized(s.email||"")===normalized(studentEmail));if(sameName||sameEmail){const msg=sameEmail?"⚠️ Cet email est déjà utilisé par un autre élève.":"⚠️ Cet élève est déjà inscrit avec le même nom.";setDbError(msg);alert(msg);return}}if(type==="teacher"){table="teachers";o={full_name:o.name,phone:o.phone||null,email:o.email||null}}if(type==="subject"){table="subjects";o={name:o.name,level:o.level,teacher_id:o.teacher_id||null}}if(type==="schedule"){table="schedules";o={level:o.level,subject_id:o.subject_id||null,teacher_id:o.teacher_id||null,day:o.day,start_time:o.start_time||null,end_time:o.end_time||null,room:o.room||null}}if(type==="payment"){table="payments";const paidDate=o.paid_date?new Date(o.paid_date+"T00:00:00"):new Date();const valid=new Date(paidDate);valid.setMonth(valid.getMonth()+1);o={student_id:o.student_id,amount:Number(o.amount),status:o.status||"Payé",note:o.note||null,paid_at:paidDate.toISOString(),valid_until:valid.toISOString().slice(0,10)}}if(type==="news"){table="announcements";o={title:o.title,content:o.content,is_published:true}}let inserted:any;if(type==="payment"){const {data:existing,error:existingError}=await supabase.from("payments").select("id").eq("student_id",o.student_id).limit(1);if(existingError){setDbError(existingError.message);return}inserted=existing&&existing.length?await supabase.from("payments").update(o).eq("id",existing[0].id):await supabase.from(table).insert(o)}else{inserted=type==="student"?await supabase.from(table).insert(o).select().single():await supabase.from(table).insert(o);}if(inserted.error){setDbError(inserted.error.message);return}if(type==="student"&&inserted.data){const chosen=Array.from((f.getAll("subject_ids") as string[]));if(chosen.length){const {error:ssErr}=await supabase.from("student_subjects").insert(chosen.map(subject_id=>({student_id:inserted.data.id,subject_id})));if(ssErr){setDbError("Élève ajouté, mais matières non enregistrées: "+ssErr.message);return}}}if(type==="student"&&o.email&&inserted.data?.qr_code){const r=await fetch("/api/send-qr",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:o.email,name:o.full_name,qrCode:inserted.data.qr_code})});if(!r.ok){const x=await r.json().catch(()=>({}));setDbError("Élève ajouté, mais email non envoyé: "+(x.error||"erreur d'envoi"));return}}e.currentTarget.reset();await refresh()};
- const mark=async(status:string)=>{if(!selected)return;let attended_on=new Date().toISOString().slice(0,10);const {error}=await supabase.from("attendance").upsert({student_id:selected.id,attended_on,status},{onConflict:"student_id,attended_on"});if(error)setDbError(error.message);else await refresh()};
- if(!authReady)return <div className="loading">Chargement...</div>;
- if(!session)return <main className="loginPage"><form className="loginBox" onSubmit={async(e)=>{e.preventDefault();setLoginError("");const {error}=await supabase.auth.signInWithPassword({email,password});if(error)setLoginError("Email ou mot de passe incorrect.")}}><img src="/logo.svg" alt="Centre Les Profs"/><h1>Administration</h1><p>Connecte-toi pour accéder au dashboard.</p>{loginError&&<div className="error">{loginError}</div>}<input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required/><input type="password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} required/><button type="submit">Se connecter</button></form></main>;
- if(!isAdmin)return <main className="loginPage"><div className="loginBox"><h1>Accès refusé</h1><p>Ce compte n'a pas les droits administrateur.</p><button onClick={()=>supabase.auth.signOut()}>Se déconnecter</button></div></main>;
- if(!ready)return <div className="loading">Chargement de Supabase...</div>;
- const today=new Date().toISOString().slice(0,10), present=presence.filter((p:any)=>p.attended_on===today&&p.status==="Présent").length;
- const Form=({children,onSubmit}:any)=><form className="form" onSubmit={onSubmit}>{children}</form>;
- return <main className="dash"><aside><a className="logo" href="/"><img src="/logo.svg"/><span>Centre<br/><b>Les Profs</b></span></a>{tabs.map(t=><button className={tab===t[0]?"active":""} onClick={()=>setTab(t[0])} key={t[0]}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className="public" href="/">↗ Site public</a><button className="logout" onClick={()=>supabase.auth.signOut()}>🚪 Déconnexion</button></aside>
- <section className="content"><div className="top"><div><p className="tag">ADMINISTRATION</p><h1>{tabs.find(x=>x[0]===tab)?.[2]}</h1></div><b>🔴 Admin</b></div>
- {dbError&&<div className="error" style={{marginBottom:16}}>{dbError}</div>}
- {tab==="home"&&<><div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="👨‍🏫" n={teachers.length} t="Professeurs"/><Metric i="📚" n={subjects.length} t="Matières"/><Metric i="✅" n={present} t="Présents aujourd'hui"/></div><Box title="Bienvenue"><p>Gère ton centre depuis un seul endroit. Commence par ajouter les élèves, les professeurs et les matières.</p></Box></>}
- {tab==="students"&&<div className="cols"><Box title="Ajouter un élève"><Form onSubmit={(e:any)=>add(e,setStudents,students,"student")}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email du tuteur / élève" required/><input name="phone" placeholder="Téléphone"/><select name="level">{levels.map(x=><option key={x}>{x}</option>)}</select><p style={{margin:"8px 0 4px"}}><b>📚 Matières du tuteur :</b></p><div style={{maxHeight:160,overflow:"auto"}}>{subjects.map(x=><label key={x.id} style={{display:"block",padding:4}}><input type="checkbox" name="subject_ids" value={x.id}/> {x.name} <small>({x.level})</small></label>)}{!subjects.length&&<small>Ajoute d’abord les matières dans l’onglet Matières.</small>}</div><button>Ajouter & envoyer le QR 📧</button></Form></Box><Box title={"Liste des élèves ("+students.length+")"}><input value={studentSearch} onChange={e=>setStudentSearch(e.target.value)} placeholder="🔎 Rechercher par nom, email ou téléphone..." style={{width:"100%",marginBottom:12}}/>{students.filter(s=>{const q=studentSearch.trim().toLowerCase();return !q||[s.full_name,s.email,s.phone].some(v=>(v||"").toLowerCase().includes(q))}).map(s=><div key={s.id} onClick={()=>setStudentDetails(s)} style={{cursor:"pointer"}}><Row title={s.full_name} sub={s.level+" • "+(s.phone||"")+(s.email?" • "+s.email:"")} action={()=>del(setStudents,students,s.id,"students")}/></div>)}{students.length>0&&!students.filter(s=>{const q=studentSearch.trim().toLowerCase();return !q||[s.full_name,s.email,s.phone].some(v=>(v||"").toLowerCase().includes(q))}).length&&<p className="empty">Aucun élève trouvé.</p>}{!students.length&&<p className="empty">Aucun élève.</p>}</Box>{studentDetails&&<Box title={"📋 Absences — "+studentDetails.full_name}><p><b>🎓 Niveau :</b> {studentDetails.level}</p><p><b>❌ Jours d’absence :</b></p>{presence.filter((p:any)=>p.student_id===studentDetails.id&&p.status==="Absent").length?<ul>{presence.filter((p:any)=>p.student_id===studentDetails.id&&p.status==="Absent").map((p:any)=><li key={p.id||p.attended_on}>📅 {new Date(p.attended_on+"T00:00:00").toLocaleDateString("fr-FR")}</li>)}</ul>:<p className="empty">✅ Aucune absence enregistrée.</p>}<button onClick={()=>setStudentDetails(null)}>Fermer</button></Box>}</div>}
- {tab==="teachers"&&<div className="cols"><Box title="Ajouter un professeur"><Form onSubmit={(e:any)=>add(e,setTeachers,teachers,"teacher")}><input name="name" placeholder="Nom complet" required/><input name="subject" placeholder="Matière"/><input name="phone" placeholder="Téléphone"/><select name="level">{levels.map(x=><option key={x}>{x}</option>)}</select><button>Ajouter</button></Form></Box><Box title="Professeurs">{teachers.map(x=><Row key={x.id} title={x.name} sub={(x.subject||"")+" • "+x.level} action={()=>del(setTeachers,teachers,x.id,"teachers")}/>)}{!teachers.length&&<p className="empty">Aucun professeur.</p>}</Box></div>}
- {tab==="subjects"&&<div className="cols"><Box title="Ajouter une matière"><Form onSubmit={(e:any)=>add(e,setSubjects,subjects,"subject")}><input name="name" placeholder="Nom de la matière" required/><select name="level">{levels.map(x=><option key={x}>{x}</option>)}</select><button>Ajouter</button></Form></Box><Box title="Matières">{subjects.map(x=><Row key={x.id} title={x.name} sub={x.level} action={()=>del(setSubjects,subjects,x.id,"subjects")}/>)}{!subjects.length&&<p className="empty">Aucune matière.</p>}</Box></div>}
- {tab==="schedule"&&<div className="cols"><Box title="Nouvelle séance"><Form onSubmit={(e:any)=>add(e,setSchedule,schedule,"schedule")}><select name="level">{levels.map(x=><option key={x}>{x}</option>)}</select><input name="subject" placeholder="Matière" required/><input name="teacher" placeholder="Professeur"/><input name="day" placeholder="Jour"/><input name="time" placeholder="Heure"/><button>Ajouter</button></Form></Box><Box title="Emploi du temps">{schedule.map(x=><Row key={x.id} title={x.subject+" — "+x.level} sub={(x.day||"")+" • "+(x.time||"")+" • "+(x.teacher||"")} action={()=>del(setSchedule,schedule,x.id,"schedules")}/>)}{!schedule.length&&<p className="empty">Aucune séance.</p>}</Box></div>}
- {tab==="qr"&&<><div style={{marginBottom:16}}><a href="/admin/scan"><button>📷 Ouvrir le scanner QR</button></a></div><div className="cols"><Box title="Choisir un élève"><div className="selectList">{students.map(s=><button className="pick" onClick={()=>setSelected(s)} key={s.id}>{s.full_name}<small>{s.qr_code}</small></button>)}</div>{!students.length&&<p className="empty">Ajoute des élèves d'abord.</p>}</Box><Box title={selected?selected.full_name:"QR Code & présence"}>{selected?<div className="qr"><QRCodeSVG value={selected.qr_code} size={210}/><code>{selected.qr_code}</code><div><button onClick={()=>mark("Présent")} className="green">✓ Présent</button><button onClick={()=>mark("Absent")} className="redbtn">✕ Absent</button><button onClick={()=>mark("Retard")} className="orange">⏱ Retard</button></div></div>:<p className="empty">Sélectionne un élève.</p>}</Box></div></>}
- {tab==="payments"&&<div className="cols"><Box title="Ajouter un paiement"><Form onSubmit={(e:any)=>add(e,setPayments,payments,"payment")}><select name="student_id" required><option value="">Choisir un élève</option>{students.map(s=><option key={s.id} value={s.id}>{s.full_name}</option>)}</select><input name="amount" type="number" placeholder="Montant DH" required/><label><b>📅 Date de paiement</b><input name="paid_date" type="date" defaultValue={new Date().toISOString().slice(0,10)}/></label><select name="status"><option>Payé</option><option>En attente</option></select><button>Enregistrer</button></Form></Box><Box title="Paiements">{payments.map(x=><Row key={x.id} title={students.find(s=>s.id===x.student_id)?.full_name||"Élève"} sub={x.amount+" DH • "+x.status} action={()=>del(setPayments,payments,x.id,"payments")}/>)}{!payments.length&&<p className="empty">Aucun paiement.</p>}</Box></div>}
- {tab==="news"&&<div className="cols"><Box title="Nouvelle annonce"><Form onSubmit={(e:any)=>add(e,setNews,news,"news")}><input name="title" placeholder="Titre" required/><textarea name="text" placeholder="Contenu" required/><button>Publier</button></Form></Box><Box title="Annonces">{news.map(x=><Row key={x.id} title={"📢 "+x.title} sub={x.text} action={()=>del(setNews,news,x.id,"announcements")}/>)}{!news.length&&<p className="empty">Aucune annonce.</p>}</Box></div>}
- {tab==="stats"&&<><div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Total élèves"/><Metric i="👨‍🏫" n={teachers.length} t="Total professeurs"/><Metric i="💰" n={payments.filter(x=>x.status==="Payé").length} t="Paiements payés"/><Metric i="🗓️" n={schedule.length} t="Séances"/></div><Box title="Répartition par niveau">{levels.map(x=><div className="stat" key={x}><span>{x}</span><b>{students.filter(s=>s.level===x).length} élèves</b></div>)}</Box></>}
- </section></main>}
-function Box({title,children}:{title:string,children:any}){return <div className="box"><h2>{title}</h2>{children}</div>}
-function Metric({i,n,t}:{i:string,n:number,t:string}){return <div className="metric"><i>{i}</i><div><b>{n}</b><small>{t}</small></div></div>}
-function Row({title,sub,action}:{title:string,sub:string,action:()=>void}){return <div className="row"><div><b>{title}</b><small>{sub}</small></div><button className="delete" onClick={action}>Supprimer</button></div>}
+
+import { useEffect, useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { supabase } from '../lib/supabase';
+
+const levels = ['3ème année collège', 'Tronc Commun', '1ère année Bac', '2ème année Bac'];
+const tabs = [
+  ['home', '🏠', "Vue d'ensemble"], ['students', '👨‍🎓', 'Élèves'], ['teachers', '👨‍🏫', 'Professeurs'],
+  ['subjects', '📚', 'Matières'], ['schedule', '🗓️', 'Emploi du temps'], ['qr', '📱', 'QR & Présence'],
+  ['payments', '💰', 'Paiements'], ['news', '📢', 'Annonces'], ['stats', '📊', 'Statistiques'],
+];
+
+const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
+
+export default function Admin() {
+  const [tab, setTab] = useState('home');
+  const [authReady, setAuthReady] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
+  const [studentSubjects, setStudentSubjects] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [schedule, setSchedule] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
+  const [presence, setPresence] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<any>(null);
+
+  useEffect(() => {
+    let active = true;
+    const check = async (s: any) => {
+      if (!active) return;
+      setSession(s);
+      if (!s) { setIsAdmin(false); setAuthReady(true); return; }
+      const { data } = await supabase.from('admins').select('user_id').eq('user_id', s.user.id).maybeSingle();
+      if (active) { setIsAdmin(!!data); setAuthReady(true); }
+    };
+    supabase.auth.getSession().then(({ data }) => check(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => check(s));
+    return () => { active = false; subscription.unsubscribe(); };
+  }, []);
+
+  const refresh = async () => {
+    setLoading(true); setError('');
+    const results = await Promise.all([
+      supabase.from('students').select('*').order('created_at', { ascending: false }),
+      supabase.from('student_subjects').select('student_id,subject_id'),
+      supabase.from('teachers').select('*').order('created_at', { ascending: false }),
+      supabase.from('subjects').select('*').order('created_at', { ascending: false }),
+      supabase.from('schedules').select('*').order('created_at', { ascending: false }),
+      supabase.from('payments').select('*').order('created_at', { ascending: false }),
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+      supabase.from('attendance').select('*').order('attended_on', { ascending: false }),
+    ]);
+    const bad = results.find((r: any) => r.error);
+    if (bad) setError(bad.error.message);
+    else {
+      setStudents(results[0].data || []); setStudentSubjects(results[1].data || []); setTeachers(results[2].data || []);
+      setSubjects(results[3].data || []); setSchedule(results[4].data || []); setPayments(results[5].data || []);
+      setNews(results[6].data || []); setPresence(results[7].data || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { if (session && isAdmin) refresh(); }, [session, isAdmin]);
+
+  const remove = async (table: string, id: string) => {
+    const { error: e } = await supabase.from(table).delete().eq('id', id);
+    if (e) setError(e.message); else refresh();
+  };
+
+  const addStudent = async (e: any) => {
+    e.preventDefault(); setError('');
+    const f = new FormData(e.currentTarget);
+    const full_name = String(f.get('name') || '').trim();
+    const studentEmail = String(f.get('email') || '').trim();
+    const level = String(f.get('level') || '');
+    const phone = String(f.get('phone') || '').trim() || null;
+    const { data: existing, error: checkError } = await supabase.from('students').select('id,full_name,email');
+    if (checkError) { setError(checkError.message); return; }
+    const norm = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (existing?.some((s: any) => norm(s.full_name || '') === norm(full_name))) { setError('⚠️ Cet élève est déjà inscrit avec le même nom.'); return; }
+    if (studentEmail && existing?.some((s: any) => norm(s.email || '') === norm(studentEmail))) { setError('⚠️ Cet email est déjà utilisé par un autre élève.'); return; }
+    const { data: student, error: insertError } = await supabase.from('students').insert({ full_name, email: studentEmail || null, phone, level }).select().single();
+    if (insertError) { setError(insertError.message); return; }
+    const subjectIds = f.getAll('subject_ids').map(String);
+    if (subjectIds.length) {
+      const { error: ssError } = await supabase.from('student_subjects').insert(subjectIds.map(subject_id => ({ student_id: student.id, subject_id })));
+      if (ssError) { setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
+    }
+    if (studentEmail && student.qr_code) {
+      const r = await fetch('/api/send-qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: studentEmail, name: full_name, qrCode: student.qr_code }) });
+      if (!r.ok) setError('Élève ajouté, mais email QR non envoyé.');
+    }
+    e.currentTarget.reset(); refresh();
+  };
+
+  const addSimple = async (e: any, table: string, payload: any) => {
+    e.preventDefault(); setError('');
+    const { error: e2 } = await supabase.from(table).insert(payload);
+    if (e2) setError(e2.message); else { e.currentTarget.reset(); refresh(); }
+  };
+
+  const addPayment = async (e: any) => {
+    e.preventDefault(); setError('');
+    const f = new FormData(e.currentTarget);
+    const student_id = String(f.get('student_id')); const amount = Number(f.get('amount'));
+    const paidDate = String(f.get('paid_date') || moroccoDate());
+    const valid = new Date(paidDate + 'T00:00:00'); valid.setMonth(valid.getMonth() + 1);
+    const { error: delError } = await supabase.from('payments').delete().eq('student_id', student_id);
+    if (delError) { setError(delError.message); return; }
+    const { error: insError } = await supabase.from('payments').insert({ student_id, amount, status: 'Payé', note: String(f.get('note') || '') || null, paid_at: new Date(paidDate + 'T00:00:00').toISOString(), valid_until: valid.toISOString().slice(0, 10) });
+    if (insError) setError(insError.message); else { e.currentTarget.reset(); refresh(); }
+  };
+
+  const markAttendance = async (status: string) => {
+    if (!selected) return;
+    const { error: e } = await supabase.from('attendance').upsert({ student_id: selected.id, attended_on: moroccoDate(), status }, { onConflict: 'student_id,attended_on' });
+    if (e) setError(e.message); else refresh();
+  };
+
+  if (!authReady) return <div className="loading">Chargement...</div>;
+  if (!session) return <main className="loginPage"><form className="loginBox" onSubmit={async e => { e.preventDefault(); setLoginError(''); const { error: e2 } = await supabase.auth.signInWithPassword({ email, password }); if (e2) setLoginError('Email ou mot de passe incorrect.'); }}><img src="/logo.svg" alt="Centre Les Profs"/><h1>Administration</h1>{loginError && <div className="error">{loginError}</div>}<input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required/><input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} required/><button>Se connecter</button></form></main>;
+  if (!isAdmin) return <main className="loginPage"><div className="loginBox"><h1>Accès refusé</h1><p>Ce compte n'a pas les droits administrateur.</p><button onClick={() => supabase.auth.signOut()}>Se déconnecter</button></div></main>;
+
+  const today = moroccoDate();
+  const present = presence.filter(p => p.attended_on === today && p.status === 'Présent').length;
+  const filteredStudents = students.filter(s => { const q = search.toLowerCase().trim(); return !q || [s.full_name, s.email, s.phone].some(v => String(v || '').toLowerCase().includes(q)); });
+
+  return <main className="dash">
+    <aside><a className="logo" href="/"><img src="/logo.svg"/><span>Centre<br/><b>Les Profs</b></span></a>{tabs.map(t => <button key={t[0]} className={tab === t[0] ? 'active' : ''} onClick={() => setTab(t[0])}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className="public" href="/">↗ Site public</a><button className="logout" onClick={() => supabase.auth.signOut()}>🚪 Déconnexion</button></aside>
+    <section className="content"><div className="top"><div><p className="tag">ADMINISTRATION</p><h1>{tabs.find(t => t[0] === tab)?.[2]}</h1></div><b>🔴 Admin</b></div>
+      {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
+      {loading ? <div className="loading">Chargement de Supabase...</div> : <>
+      {tab === 'home' && <><div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="👨‍🏫" n={teachers.length} t="Professeurs"/><Metric i="📚" n={subjects.length} t="Matières"/><Metric i="✅" n={present} t="Présents aujourd'hui"/></div><Box title="Bienvenue"><p>Gère ton centre depuis un seul endroit.</p></Box></>}
+
+      {tab === 'students' && <div className="cols"><Box title="Ajouter un élève"><form className="form" onSubmit={addStudent}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email" required/><input name="phone" placeholder="Téléphone"/><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><p><b>📚 Matières :</b></p><div style={{ maxHeight: 160, overflow: 'auto' }}>{subjects.map(x => <label key={x.id} style={{ display: 'block', padding: 4 }}><input type="checkbox" name="subject_ids" value={x.id}/> {x.name} <small>({x.level})</small></label>)}</div><button>Ajouter & envoyer le QR 📧</button></form></Box><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => setSelected(s)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
+
+      {tab === 'teachers' && <div className="cols"><Box title="Ajouter un professeur"><form className="form" onSubmit={e => addSimple(e, 'teachers', { full_name: String(new FormData(e.currentTarget).get('name') || ''), phone: String(new FormData(e.currentTarget).get('phone') || '') || null, email: String(new FormData(e.currentTarget).get('email') || '') || null })}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email"/><input name="phone" placeholder="Téléphone"/><button>Ajouter</button></form></Box><Box title="Professeurs">{teachers.map(t => <Row key={t.id} title={t.full_name || t.name} sub={t.email || t.phone || ''} action={() => remove('teachers', t.id)}/>)}{!teachers.length && <p className="empty">Aucun professeur.</p>}</Box></div>}
+
+      {tab === 'subjects' && <div className="cols"><Box title="Ajouter une matière"><form className="form" onSubmit={e => addSimple(e, 'subjects', { name: String(new FormData(e.currentTarget).get('name') || ''), level: String(new FormData(e.currentTarget).get('level') || '') })}><input name="name" placeholder="Nom de la matière" required/><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><button>Ajouter</button></form></Box><Box title="Matières">{subjects.map(s => <Row key={s.id} title={s.name} sub={s.level} action={() => remove('subjects', s.id)}/>)}{!subjects.length && <p className="empty">Aucune matière.</p>}</Box></div>}
+
+      {tab === 'schedule' && <div className="cols"><Box title="Nouvelle séance"><form className="form" onSubmit={e => { const f = new FormData(e.currentTarget); return addSimple(e, 'schedules', { level: String(f.get('level')), subject_id: String(f.get('subject_id')) || null, teacher_id: String(f.get('teacher_id')) || null, day: String(f.get('day')), start_time: String(f.get('start_time')), end_time: String(f.get('end_time')), room: String(f.get('room') || '') || null }); }}><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><select name="subject_id"><option value="">Matière</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><select name="teacher_id"><option value="">Professeur</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || t.name}</option>)}</select><input name="day" placeholder="Jour" required/><input name="start_time" type="time" required/><input name="end_time" type="time" required/><input name="room" placeholder="Salle"/><button>Ajouter</button></form></Box><Box title="Emploi du temps">{schedule.map(s => <Row key={s.id} title={`${s.day} • ${s.start_time || ''}-${s.end_time || ''}`} sub={s.level} action={() => remove('schedules', s.id)}/>)}{!schedule.length && <p className="empty">Aucune séance.</p>}</Box></div>}
+
+      {tab === 'qr' && <Box title="QR & Présence"><p>Pour démarrer une séance et scanner les élèves :</p><a className="button" href="/admin/scan">📷 Ouvrir le scanner</a>{selected && <><hr/><QRCodeSVG value={selected.qr_code || selected.id}/><button onClick={() => markAttendance('Présent')}>Marquer Présent</button><button onClick={() => markAttendance('Absent')}>Marquer Absent</button></>}</Box>}
+
+      {tab === 'payments' && <div className="cols"><Box title="Nouveau paiement"><form className="form" onSubmit={addPayment}><select name="student_id" required><option value="">Élève</option>{students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select><input name="amount" type="number" min="0" placeholder="Montant" required/><input name="paid_date" type="date" defaultValue={today}/><input name="note" placeholder="Note"/><button>Enregistrer le paiement</button></form></Box><Box title="Paiements">{payments.map(p => <Row key={p.id} title={`${students.find(s => s.id === p.student_id)?.full_name || 'Élève'} — ${p.amount} DH`} sub={`Valide jusqu'au ${p.valid_until || '-'}`} action={() => remove('payments', p.id)}/>)}{!payments.length && <p className="empty">Aucun paiement.</p>}</Box></div>}
+
+      {tab === 'news' && <div className="cols"><Box title="Nouvelle annonce"><form className="form" onSubmit={e => { const f = new FormData(e.currentTarget); return addSimple(e, 'announcements', { title: String(f.get('title')), content: String(f.get('content')), is_published: true }); }}><input name="title" placeholder="Titre" required/><textarea name="content" placeholder="Contenu" required/><button>Publier</button></form></Box><Box title="Annonces">{news.map(n => <Row key={n.id} title={n.title} sub={n.content} action={() => remove('announcements', n.id)}/>)}</Box></div>}
+
+      {tab === 'stats' && <div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="✅" n={presence.filter(p => p.status === 'Présent').length} t="Présences"/><Metric i="❌" n={presence.filter(p => p.status === 'Absent').length} t="Absences"/><Metric i="💰" n={payments.length} t="Paiements"/></div>}
+      </>}
+    </section>
+  </main>;
+}
+
+function Box({ title, children }: any) { return <div className="box"><h2>{title}</h2>{children}</div>; }
+function Row({ title, sub, action }: any) { return <div className="row"><div onClick={action} style={{ flex: 1, cursor: action ? 'pointer' : 'default' }}><b>{title}</b><small>{sub}</small></div>{action && <button type="button" onClick={action}>Supprimer</button>}</div>; }
+function Metric({ i, n, t }: any) { return <div className="metric"><span>{i}</span><b>{n}</b><small>{t}</small></div>; }
