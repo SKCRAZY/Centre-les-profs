@@ -18,7 +18,6 @@ export async function POST(request: Request) {
     }
 
     const safeName = escapeHtml(name || "");
-    const safeEmail = escapeHtml(email);
     const safeQrCode = escapeHtml(qrCode);
     const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(qrCode)}&size=300`;
 
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
           },
           to: [{ name: name || undefined, email }],
           subject: "Votre QR Code — Centre Les Profs",
-          body: `Bonjour ${name || ""},\n\nVoici votre QR Code pour enregistrer votre présence.\n\nCode : ${qrCode}\n\nGardez ce QR Code et présentez-le à l'administration lors de votre présence.`,
+          body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto"><h2>Centre Les Profs</h2><p>Bonjour ${safeName},</p><p>Voici votre QR Code pour enregistrer votre présence :</p><div style="background:#fff;padding:20px;text-align:center;border:1px solid #eee;border-radius:12px"><img src="${qrImage}" alt="QR Code" width="300" height="300" /></div><p><strong>Code :</strong> ${safeQrCode}</p><p>Gardez ce QR Code et présentez-le à l'administration lors de votre présence.</p></div>`,
           tracking_options: { opens: false, links: false },
         }),
       }
