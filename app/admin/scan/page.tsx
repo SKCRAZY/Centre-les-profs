@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 
 export default function ScanPage() {
   const scanner = useRef<Html5Qrcode | null>(null);
+  const busyRef = useRef(false);
   const [message, setMessage] = useState('Prêt à scanner');
   const [student, setStudent] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -13,6 +14,7 @@ export default function ScanPage() {
   const [busy, setBusy] = useState(false);
   const [started, setStarted] = useState(false);
   const [closed, setClosed] = useState(false);
+  const [sessionDate, setSessionDate] = useState('');
 
   const moroccoDate = () =>
     new Intl.DateTimeFormat('en-CA', {
@@ -21,6 +23,18 @@ export default function ScanPage() {
       month: '2-digit',
       day: '2-digit',
     }).format(new Date());
+
+  const checkMoroccoTime = () => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Casablanca',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date());
+    const hour = Number(parts.find((p) => p.type === 'hour')?.value || 0);
+    const minute = Number(parts.find((p) => p.type === 'minute')?.value || 0);
+    return hour > 22 || (hour === 22 && minute >= 0);
+  };
 
   const startSession = async () => {
     const date = moroccoDate();
@@ -46,10 +60,47 @@ export default function ScanPage() {
       }
     }
 
+    setSessionDate(date);
     setClosed(false);
     setStarted(true);
     setMessage('🟢 Séance démarrée. Scanner prêt.');
   };
+
+  useEffect(() => {
+    const today = moroccoDate();
+    setSessionDate(today);
+    setClosed(checkMoroccoTime());
+
+    const timer = window.setInterval(() => {
+      const currentDate = moroccoDate();
+
+      if (currentDate !== sessionDate && sessionDate) {
+        setSessionDate(currentDate);
+        setStarted(false);
+        setClosed(false);
+        setStudent(null);
+        setSubjects([]);
+        setPayment(null);
+        setMessage('Nouveau jour — aucune séance démarrée.');
+        busyRef.current = false;
+        return;
+      }
+
+      if (started && checkMoroccoTime()) {
+        setClosed(true);
+        setStarted(false);
+        scanner.current?.stop().catch(() => undefined);
+        try {
+          scanner.current?.clear();
+        } catch {
+          // Scanner may already be cleared/stopped.
+        }
+        setMessage('🔒 La séance est terminée automatiquement à 22:00 (heure du Maroc).');
+      }
+    }, 10000);
+
+    return () => window.clearInterval(timer);
+  }, [sessionDate, started]);
 
   useEffect(() => {
     if (!started) return;
@@ -72,10 +123,27 @@ export default function ScanPage() {
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           async (decodedText) => {
-            if (busy) return;
+            if (busyRef.current) return;
+            busyRef.current = true;
             setBusy(true);
 
             try {
+              const today = moroccoDate();
+              const { data: activeSession, error: sessionError } = await supabase
+                .from('sessions')
+                .select('id')
+                .eq('session_date', today)
+                .eq('status', 'active')
+                .maybeSingle();
+
+              if (sessionError) throw sessionError;
+              if (!activeSession) {
+                setStarted(false);
+                setClosed(true);
+                setMessage('🔒 La séance est fermée pour aujourd’hui.');
+                return;
+              }
+
               const { data: s, error: se } = await supabase
                 .from('students')
                 .select('id,full_name,level,qr_code')
@@ -111,7 +179,6 @@ export default function ScanPage() {
               );
               setPayment(payRes.data?.[0] || null);
 
-              const today = moroccoDate();
               const { error: ae } = await supabase
                 .from('attendance')
                 .upsert(
@@ -124,7 +191,10 @@ export default function ScanPage() {
             } catch (e: any) {
               setMessage(`Erreur: ${e?.message || 'enregistrement impossible'}`);
             } finally {
-              window.setTimeout(() => setBusy(false), 1200);
+              window.setTimeout(() => {
+                busyRef.current = false;
+                setBusy(false);
+              }, 1200);
             }
           },
           () => {},
@@ -157,37 +227,6 @@ export default function ScanPage() {
           });
       }
     };
-  }, [started, busy]);
-
-  useEffect(() => {
-    if (!started) return;
-
-    const checkMoroccoTime = () => {
-      const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Africa/Casablanca',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }).formatToParts(new Date());
-      const hour = Number(parts.find((p) => p.type === 'hour')?.value || 0);
-      const minute = Number(parts.find((p) => p.type === 'minute')?.value || 0);
-
-      if (hour > 22 || (hour === 22 && minute >= 0)) {
-        setClosed(true);
-        setStarted(false);
-        scanner.current?.stop().catch(() => undefined);
-        try {
-          scanner.current?.clear();
-        } catch {
-          // Scanner may already be cleared/stopped.
-        }
-        setMessage('🔒 La séance est terminée automatiquement à 22:00 (heure du Maroc).');
-      }
-    };
-
-    checkMoroccoTime();
-    const timer = window.setInterval(checkMoroccoTime, 10000);
-    return () => window.clearInterval(timer);
   }, [started]);
 
   const subscriptionInfo = () => {
