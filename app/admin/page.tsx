@@ -77,6 +77,21 @@ export default function Admin() {
     if (e) setError(e.message); else refresh();
   };
 
+  const removeStudent = async (id: string) => {
+    if (!window.confirm('Supprimer cet élève ?')) return;
+    setError('');
+    const { error: ssError } = await supabase.from('student_subjects').delete().eq('student_id', id);
+    if (ssError) { setError(ssError.message); return; }
+    const { error: attendanceError } = await supabase.from('attendance').delete().eq('student_id', id);
+    if (attendanceError) { setError(attendanceError.message); return; }
+    const { error: paymentsError } = await supabase.from('payments').delete().eq('student_id', id);
+    if (paymentsError) { setError(paymentsError.message); return; }
+    const { error: studentError } = await supabase.from('students').delete().eq('id', id);
+    if (studentError) { setError(studentError.message); return; }
+    if (selected?.id === id) setSelected(null);
+    await refresh();
+  };
+
   const addStudent = async (e: any) => {
     e.preventDefault(); setError('');
     const f = new FormData(e.currentTarget);
@@ -142,7 +157,7 @@ export default function Admin() {
       {loading ? <div className="loading">Chargement de Supabase...</div> : <>
       {tab === 'home' && <><div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="👨‍🏫" n={teachers.length} t="Professeurs"/><Metric i="📚" n={subjects.length} t="Matières"/><Metric i="✅" n={present} t="Présents aujourd'hui"/></div><Box title="Bienvenue"><p>Gère ton centre depuis un seul endroit.</p></Box></>}
 
-      {tab === 'students' && <div className="cols"><Box title="Ajouter un élève"><form className="form" onSubmit={addStudent}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email" required/><input name="phone" placeholder="Téléphone"/><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><p><b>📚 Matières :</b></p><div style={{ maxHeight: 160, overflow: 'auto' }}>{subjects.map(x => <label key={x.id} style={{ display: 'block', padding: 4 }}><input type="checkbox" name="subject_ids" value={x.id}/> {x.name} <small>({x.level})</small></label>)}</div><button>Ajouter & envoyer le QR 📧</button></form></Box><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => setSelected(s)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
+      {tab === 'students' && <div className="cols"><Box title="Ajouter un élève"><form className="form" onSubmit={addStudent}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email" required/><input name="phone" placeholder="Téléphone"/><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><p><b>📚 Matières :</b></p><div style={{ maxHeight: 160, overflow: 'auto' }}>{subjects.map(x => <label key={x.id} style={{ display: 'block', padding: 4 }}><input type="checkbox" name="subject_ids" value={x.id}/> {x.name} <small>({x.level})</small></label>)}</div><button>Ajouter & envoyer le QR 📧</button></form></Box><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => setSelected(s)} deleteAction={() => removeStudent(s.id)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
 
       {tab === 'teachers' && <div className="cols"><Box title="Ajouter un professeur"><form className="form" onSubmit={e => addSimple(e, 'teachers', { full_name: String(new FormData(e.currentTarget).get('name') || ''), phone: String(new FormData(e.currentTarget).get('phone') || '') || null, email: String(new FormData(e.currentTarget).get('email') || '') || null })}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email"/><input name="phone" placeholder="Téléphone"/><button>Ajouter</button></form></Box><Box title="Professeurs">{teachers.map(t => <Row key={t.id} title={t.full_name || t.name} sub={t.email || t.phone || ''} action={() => remove('teachers', t.id)}/>)}{!teachers.length && <p className="empty">Aucun professeur.</p>}</Box></div>}
 
@@ -163,5 +178,11 @@ export default function Admin() {
 }
 
 function Box({ title, children }: any) { return <div className="box"><h2>{title}</h2>{children}</div>; }
-function Row({ title, sub, action }: any) { return <div className="row"><div onClick={action} style={{ flex: 1, cursor: action ? 'pointer' : 'default' }}><b>{title}</b><small>{sub}</small></div>{action && <button type="button" onClick={action}>Supprimer</button>}</div>; }
+function Row({ title, sub, action, deleteAction }: any) {
+  const removeAction = deleteAction || action;
+  return <div className="row">
+    <div onClick={action} style={{ flex: 1, cursor: action ? 'pointer' : 'default' }}><b>{title}</b><small>{sub}</small></div>
+    {removeAction && <button type="button" onClick={e => { e.stopPropagation(); removeAction(); }}>Supprimer</button>}
+  </div>;
+}
 function Metric({ i, n, t }: any) { return <div className="metric"><span>{i}</span><b>{n}</b><small>{t}</small></div>; }
