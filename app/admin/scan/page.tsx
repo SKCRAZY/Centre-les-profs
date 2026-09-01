@@ -11,9 +11,11 @@ export default function ScanPage() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [payment, setPayment] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     const start = async () => {
+      if (!started) return;
       const { data } = await supabase.auth.getSession();
       if (!data.session) { setMessage('Connecte-toi à l’administration d’abord.'); return; }
 
@@ -94,7 +96,7 @@ export default function ScanPage() {
       scanner.current?.stop().catch(() => {});
       scanner.current?.clear();
     };
-  }, []);
+  }, [started]);
 
   const subscriptionInfo = () => {
     if (!payment) {
@@ -162,10 +164,14 @@ export default function ScanPage() {
       <h1>📱 Scanner QR — Présence</h1>
       <p>{message}</p>
 
-      <div
+      {!started && <button onClick={() => setStarted(true)} style={{ padding: '12px 20px', fontSize: 16 }}>▶️ Démarrer la séance</button>}
+
+      {started && <p>🟢 Séance en cours — fermeture automatique à 22:00 (heure du Maroc)</p>}
+
+      {started && <div
         id="qr-reader"
         style={{ width: '100%', maxWidth: 500, margin: '20px auto' }}
-      />
+      />}
 
       {student && (
         <div style={{ padding: 22, borderRadius: 16, background: '#f3f4f6' }}>
