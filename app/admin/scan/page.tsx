@@ -36,8 +36,48 @@ export default function ScanPage() {
     return hour > 22 || (hour === 22 && minute >= 0);
   };
 
+  const syncSessionState = async () => {
+    const today = moroccoDate();
+    setSessionDate(today);
+
+    if (checkMoroccoTime()) {
+      setStarted(false);
+      setClosed(true);
+      return;
+    }
+
+    const { data: activeSession, error } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('session_date', today)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (error) {
+      setMessage('Erreur: ' + error.message);
+      return;
+    }
+
+    if (activeSession) {
+      setStarted(true);
+      setClosed(false);
+      setMessage('🟢 Séance en cours. Scanner prêt.');
+    } else {
+      setStarted(false);
+      setClosed(false);
+    }
+  };
+
   const startSession = async () => {
     const date = moroccoDate();
+
+    if (checkMoroccoTime()) {
+      setClosed(true);
+      setStarted(false);
+      setMessage('🔒 La séance ne peut plus démarrer après 22:00.');
+      return;
+    }
+
     const { data: existing, error: findError } = await supabase
       .from('sessions')
       .select('id')
@@ -67,14 +107,14 @@ export default function ScanPage() {
   };
 
   useEffect(() => {
-    const today = moroccoDate();
-    setSessionDate(today);
-    setClosed(checkMoroccoTime());
+    void syncSessionState();
+  }, []);
 
+  useEffect(() => {
     const timer = window.setInterval(() => {
       const currentDate = moroccoDate();
 
-      if (currentDate !== sessionDate && sessionDate) {
+      if (sessionDate && currentDate !== sessionDate) {
         setSessionDate(currentDate);
         setStarted(false);
         setClosed(false);
