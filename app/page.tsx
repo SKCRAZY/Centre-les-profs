@@ -1,0 +1,7 @@
+const levels=["3ème année collège","Tronc Commun","1ère année Bac","2ème année Bac"];
+export default function Home(){return <main>
+<header><a className="brand" href="/"><img src="/logo.jpeg"/><b>CENTRE LES PROFS</b></a><nav><a href="#levels">Niveaux</a><a href="#about">À propos</a><a className="red" href="/admin">Administration</a></nav></header>
+<section className="hero"><div><p className="tag">CENTRE DE SOUTIEN SCOLAIRE</p><h1>Construisons ensemble <span>la réussite.</span></h1><p>Une plateforme moderne pour accompagner les élèves et simplifier la gestion du Centre Les Profs.</p><a className="red" href="/admin">Ouvrir l'administration →</a></div><div className="heroIcon">🎓</div></section>
+<section id="levels"><p className="tag">NOS NIVEAUX</p><h2>Un accompagnement pour chaque étape</h2><div className="cards">{levels.map((x,i)=><article key={x}><b>0{i+1}</b><h3>{x}</h3><p>Les matières et les professeurs sont ajoutés depuis le Dashboard Admin.</p></article>)}</div></section>
+<section id="about" className="dark"><div><p className="tag">UNE GESTION MODERNE</p><h2>Tout le centre dans une seule plateforme.</h2><p>Élèves • Professeurs • Matières • Emploi du temps • QR Code • Présence • Paiements • Annonces • Statistiques</p></div></section>
+<footer>© {new Date().getFullYear()} Centre Les Profs</footer></main>}
