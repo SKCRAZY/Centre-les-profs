@@ -61,7 +61,7 @@ export default function Admin() {
       supabase.from('attendance').select('*').order('attended_on', { ascending: false }),
     ]);
     const bad = results.find((r: any) => r.error);
-    if (bad) setError(bad.error.message);
+    if (bad?.error) setError(bad.error.message);
     else {
       setStudents(results[0].data || []); setStudentSubjects(results[1].data || []); setTeachers(results[2].data || []);
       setSubjects(results[3].data || []); setSchedule(results[4].data || []); setPayments(results[5].data || []);
