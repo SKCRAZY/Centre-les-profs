@@ -33,3 +33,5 @@
   .metric small{line-height:1.2}
   .cols{grid-template-columns:1fr!important}
 }
+
+.loginPage{min-height:100vh;display:grid;place-items:center;padding:20px;background:#111218}.loginBox{width:min(400px,100%);display:flex;flex-direction:column;gap:14px;padding:30px;border-radius:20px;background:#fff;box-shadow:0 20px 60px #0005}.loginBox img{width:90px;margin:auto}.loginBox h1,.loginBox p{text-align:center;margin:0}.loginBox input{padding:14px;border:1px solid #ddd;border-radius:10px;font-size:16px}.loginBox button{padding:14px;border:0;border-radius:10px;background:#e30613;color:#fff;font-weight:700;cursor:pointer}.logout{margin-top:auto;padding:10px;border:0;background:transparent;color:#fff;cursor:pointer}
