@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/close-session",
-      "schedule": "0 22 * * *"
+      "schedule": "15 22 * * *"
     }
   ]
 }
