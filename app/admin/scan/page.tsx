@@ -12,6 +12,7 @@ export default function ScanPage() {
   const [payment, setPayment] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [started, setStarted] = useState(false);
+  const [closed, setClosed] = useState(false);
 
   useEffect(() => {
     const start = async () => {
@@ -98,6 +99,30 @@ export default function ScanPage() {
     };
   }, [started]);
 
+  useEffect(() => {
+    if (!started) return;
+
+    const checkMoroccoTime = () => {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Casablanca', hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(new Date());
+      const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+      const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+
+      if (hour > 22 || (hour === 22 && minute >= 0)) {
+        setClosed(true);
+        setStarted(false);
+        scanner.current?.stop().catch(() => {});
+        scanner.current?.clear().catch(() => {});
+        setMessage('🔒 La séance est terminée automatiquement à 22:00 (heure du Maroc).');
+      }
+    };
+
+    checkMoroccoTime();
+    const timer = window.setInterval(checkMoroccoTime, 10000);
+    return () => window.clearInterval(timer);
+  }, [started]);
+
   const subscriptionInfo = () => {
     if (!payment) {
       return <p><b>💰 Abonnement :</b> 🔴 Aucun paiement enregistré</p>;
@@ -164,7 +189,8 @@ export default function ScanPage() {
       <h1>📱 Scanner QR — Présence</h1>
       <p>{message}</p>
 
-      {!started && <button onClick={() => setStarted(true)} style={{ padding: '12px 20px', fontSize: 16 }}>▶️ Démarrer la séance</button>}
+      {!started && !closed && <button onClick={() => setStarted(true)} style={{ padding: '12px 20px', fontSize: 16 }}>▶️ Démarrer la séance</button>}
+      {closed && <p>🔒 Séance fermée pour aujourd’hui.</p>}
 
       {started && <p>🟢 Séance en cours — fermeture automatique à 22:00 (heure du Maroc)</p>}
 
