@@ -40,12 +40,6 @@ export default function ScanPage() {
     const today = moroccoDate();
     setSessionDate(today);
 
-    if (checkMoroccoTime()) {
-      setStarted(false);
-      setClosed(true);
-      return;
-    }
-
     const { data: activeSession, error } = await supabase
       .from('sessions')
       .select('id')
@@ -58,10 +52,16 @@ export default function ScanPage() {
       return;
     }
 
-    if (activeSession) {
+    if (activeSession && !checkMoroccoTime()) {
       setStarted(true);
       setClosed(false);
       setMessage('🟢 Séance en cours. Scanner prêt.');
+    } else if (checkMoroccoTime()) {
+      // After 22:00 the current session is considered finished, so the
+      // button becomes available again immediately for a new session.
+      setStarted(false);
+      setClosed(false);
+      setMessage('🔒 Séance terminée. Vous pouvez démarrer une nouvelle séance.');
     } else {
       setStarted(false);
       setClosed(false);
@@ -70,13 +70,6 @@ export default function ScanPage() {
 
   const startSession = async () => {
     const date = moroccoDate();
-
-    if (checkMoroccoTime()) {
-      setClosed(true);
-      setStarted(false);
-      setMessage('🔒 La séance ne peut plus démarrer après 22:00.');
-      return;
-    }
 
     const { data: existing, error: findError } = await supabase
       .from('sessions')
@@ -127,15 +120,15 @@ export default function ScanPage() {
       }
 
       if (started && checkMoroccoTime()) {
-        setClosed(true);
         setStarted(false);
+        setClosed(false);
         scanner.current?.stop().catch(() => undefined);
         try {
           scanner.current?.clear();
         } catch {
           // Scanner may already be cleared/stopped.
         }
-        setMessage('🔒 La séance est terminée automatiquement à 22:00 (heure du Maroc).');
+        setMessage('🔒 La séance est terminée automatiquement à 22:00. Démarrer la séance est de nouveau disponible.');
       }
     }, 10000);
 
@@ -179,8 +172,8 @@ export default function ScanPage() {
               if (sessionError) throw sessionError;
               if (!activeSession) {
                 setStarted(false);
-                setClosed(true);
-                setMessage('🔒 La séance est fermée pour aujourd’hui.');
+                setClosed(false);
+                setMessage('🔒 La séance est fermée. Vous pouvez démarrer une nouvelle séance.');
                 return;
               }
 
@@ -305,12 +298,11 @@ export default function ScanPage() {
       <h1>📱 Scanner QR — Présence</h1>
       <p>{message}</p>
 
-      {!started && !closed && (
+      {!started && (
         <button onClick={startSession} style={{ padding: '12px 20px', fontSize: 16 }}>
           ▶️ Démarrer la séance
         </button>
       )}
-      {closed && <p>🔒 Séance fermée pour aujourd’hui.</p>}
       {started && <p>🟢 Séance en cours — fermeture automatique à 22:00 (heure du Maroc)</p>}
 
       {started && (
