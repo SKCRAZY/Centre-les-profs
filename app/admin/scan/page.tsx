@@ -14,6 +14,21 @@ export default function ScanPage() {
   const [started, setStarted] = useState(false);
   const [closed, setClosed] = useState(false);
 
+  const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+  const startSession = async () => {
+    const date = moroccoDate();
+    const { data: existing, error: findError } = await supabase.from('sessions').select('id').eq('session_date', date).eq('status', 'active').maybeSingle();
+    if (findError) { setMessage('Erreur: ' + findError.message); return; }
+    if (!existing) {
+      const { error } = await supabase.from('sessions').insert({ session_date: date, status: 'active' });
+      if (error) { setMessage('Erreur: ' + error.message); return; }
+    }
+    setClosed(false);
+    setStarted(true);
+    setMessage('🟢 Séance démarrée. Scanner prêt.');
+  };
+
   useEffect(() => {
     const start = async () => {
       if (!started) return;
@@ -189,7 +204,7 @@ export default function ScanPage() {
       <h1>📱 Scanner QR — Présence</h1>
       <p>{message}</p>
 
-      {!started && !closed && <button onClick={() => setStarted(true)} style={{ padding: '12px 20px', fontSize: 16 }}>▶️ Démarrer la séance</button>}
+      {!started && !closed && <button onClick={startSession} style={{ padding: '12px 20px', fontSize: 16 }}>▶️ Démarrer la séance</button>}
       {closed && <p>🔒 Séance fermée pour aujourd’hui.</p>}
 
       {started && <p>🟢 Séance en cours — fermeture automatique à 22:00 (heure du Maroc)</p>}
