@@ -33,10 +33,10 @@ export default function ScanPage() {
 
               setStudent(s);
               const [subRes, payRes] = await Promise.all([
-                supabase.from('subjects').select('id,name,level').eq('level', s.level),
+                supabase.from('student_subjects').select('subject_id, subjects(id,name,level)').eq('student_id', s.id),
                 supabase.from('payments').select('*').eq('student_id', s.id).order('created_at', { ascending: false }).limit(1)
               ]);
-              setSubjects(subRes.data || []);
+              setSubjects((subRes.data || []).map((x:any) => x.subjects).filter(Boolean));
               setPayment(payRes.data?.[0] || null);
 
               const today = new Date().toISOString().slice(0, 10);
@@ -73,7 +73,7 @@ export default function ScanPage() {
           <h2 style={{ textAlign: 'center' }}>👨‍🎓 {student.full_name}</h2>
           <p><b>📚 Niveau :</b> {student.level}</p>
           <p><b>📖 Matières :</b></p>
-          {subjects.length ? <ul>{subjects.map(x => <li key={x.id}>{x.name}</li>)}</ul> : <p>Aucune matière enregistrée pour ce niveau.</p>}
+          {subjects.length ? <ul>{subjects.map(x => <li key={x.id}>{x.name}</li>)}</ul> : <p>Aucune matière sélectionnée pour cet élève.</p>}
           <p><b>💰 Paiement :</b> {payment ? (payment.status === 'Payé' ? '✅ Payé' : '⚠️ ' + payment.status) : '⚠️ Aucun paiement enregistré'}</p>
           {payment?.amount && <p><b>Montant :</b> {payment.amount} DH</p>}
           <hr style={{ margin: '16px 0' }} />
