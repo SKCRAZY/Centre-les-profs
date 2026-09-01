@@ -74,8 +74,7 @@ export default function ScanPage() {
           <p><b>📚 Niveau :</b> {student.level}</p>
           <p><b>📖 Matières :</b></p>
           {subjects.length ? <ul>{subjects.map(x => <li key={x.id}>{x.name}</li>)}</ul> : <p>Aucune matière sélectionnée pour cet élève.</p>}
-          <p><b>💰 Paiement :</b> {payment ? (payment.status === 'Payé' ? '✅ Payé' : '⚠️ ' + payment.status) : '⚠️ Aucun paiement enregistré'}</p>
-          {payment?.amount && <p><b>Montant :</b> {payment.amount} DH</p>}
+          {payment ? (()=>{const end=payment.valid_until?new Date(payment.valid_until+'T00:00:00'):null;const todayDate=new Date();todayDate.setHours(0,0,0,0);const active=payment.status==='Payé'&&end&&end>=todayDate;const days=end?Math.ceil((end.getTime()-todayDate.getTime())/86400000):null;return <><p><b>💰 Abonnement :</b> {active?'✅ Actif':'🔴 Expiré / non payé'}</p>{payment.paid_at&&<p><b>📅 Payé le :</b> {new Date(payment.paid_at).toLocaleDateString('fr-FR')}</p>}{end&&<p><b>📆 Valable jusqu’au :</b> {end.toLocaleDateString('fr-FR')}</p>}{active&&days!==null&&<p><b>⏳ Jours restants :</b> {days} jour(s)</p>}{payment.amount&&<p><b>💵 Montant :</b> {payment.amount} DH</p>}</>:<p><b>💰 Abonnement :</b> 🔴 Aucun paiement enregistré</p>}</>
           <hr style={{ margin: '16px 0' }} />
           <strong>✅ Présent aujourd’hui</strong>
         </div>
