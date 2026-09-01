@@ -128,7 +128,7 @@ export default function ScanPage() {
         setClosed(true);
         setStarted(false);
         scanner.current?.stop().catch(() => {});
-        scanner.current?.clear().catch(() => {});
+        try { scanner.current?.clear(); } catch {}
         setMessage('🔒 La séance est terminée automatiquement à 22:00 (heure du Maroc).');
       }
     };
