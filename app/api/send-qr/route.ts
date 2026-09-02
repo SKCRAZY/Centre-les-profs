@@ -13,8 +13,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const nylasApiKey = process.env.NYLAS_API_KEY;
-    const nylasDomain = process.env.NYLAS_EMAIL_DOMAIN;
+    const nylasApiKey = process.env.NYLAS_API_KEY?.trim();
+    const nylasDomain = process.env.NYLAS_EMAIL_DOMAIN?.trim();
 
     if (!nylasApiKey || !nylasDomain) {
       return NextResponse.json(
@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     const safeName = escapeHtml(String(name || ""));
     const safeQrCode = escapeHtml(code);
     const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=300`;
+    const requestId = crypto.randomUUID();
 
-    // The Centre Les Profs Nylas app/domain is hosted in EU.
     const response = await fetch(
       `https://api.eu.nylas.com/v3/domains/${encodeURIComponent(nylasDomain)}/messages/send`,
       {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
           Accept: "application/json",
           Authorization: `Bearer ${nylasApiKey}`,
           "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
+          "Idempotency-Key": requestId,
         },
         body: JSON.stringify({
           from: {
@@ -52,18 +52,31 @@ export async function POST(request: Request) {
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const nylasError = result?.error || {};
       return NextResponse.json(
         {
-          error: result?.message || result?.error?.message || "Nylas error",
-          details: result,
+          error: nylasError?.message || result?.message || "Nylas error",
+          type: nylasError?.type || "unknown",
+          request_id: result?.request_id || null,
+          status: response.status,
         },
         { status: response.status }
       );
     }
 
-    return NextResponse.json({ ok: true, id: result?.data?.message_id || result?.request_id });
-  } catch {
-    return NextResponse.json({ error: "Impossible d'envoyer l'email." }, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      id: result?.data?.message_id || result?.request_id,
+      request_id: result?.request_id || null,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: "Impossible d'envoyer l'email.",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
   }
 }
 
