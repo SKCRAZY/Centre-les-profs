@@ -34,6 +34,8 @@ export default function Admin() {
   const [search, setSearch] = useState('');
   const [studentLevel, setStudentLevel] = useState('');
   const [selected, setSelected] = useState<any>(null);
+  const [renewAmount, setRenewAmount] = useState('');
+  const [renewDate, setRenewDate] = useState(moroccoDate());
 
   useEffect(() => {
     let active = true;
@@ -126,6 +128,21 @@ export default function Admin() {
     e.currentTarget.reset(); setStudentLevel(''); refresh();
   };
 
+  const renewSubscription = async () => {
+    if (!selected) return;
+    const amount = Number(renewAmount || 0);
+    if (amount <= 0) { setError('Veuillez entrer un montant valide.'); return; }
+    const start = renewDate || moroccoDate();
+    const valid = new Date(start + 'T00:00:00'); valid.setMonth(valid.getMonth() + 1);
+    const { error: e } = await supabase.from('payments').insert({
+      student_id: selected.id, amount, status: 'Payé',
+      paid_at: new Date(start + 'T00:00:00').toISOString(),
+      valid_until: valid.toISOString().slice(0,10)
+    });
+    if (e) { setError(e.message); return; }
+    setRenewAmount(''); setRenewDate(moroccoDate()); await refresh();
+  };
+
   const addSimple = async (e: any, table: string, payload: any) => {
     e.preventDefault(); setError('');
     const { error: e2 } = await supabase.from(table).insert(payload);
@@ -167,7 +184,7 @@ export default function Admin() {
 
       {tab === 'students' && <div className="cols"><Box title="Ajouter un élève"><form className="form" onSubmit={addStudent}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email" required/><input name="phone" placeholder="Téléphone"/><select name="level" value={studentLevel} onChange={e=>setStudentLevel(e.target.value)} required><option value="" disabled>Choisir le niveau</option>{levels.map(x => <option key={x} value={x}>{x}</option>)}</select>{studentLevel && <><p><b>📚 Matières de {studentLevel} :</b></p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,maxHeight:220,overflow:'auto'}}>{subjects.filter(x=>x.level===studentLevel).length ? subjects.filter(x=>x.level===studentLevel).map(x => <label key={x.id} className="subject-option"><input type="checkbox" name="subject_ids" value={x.id}/><span>📚 {x.name}</span></label>) : <p className="empty">Aucune matière pour ce niveau.</p>}</div><p style={{fontSize:13,opacity:.7,marginTop:8}}>يمكن اختيار أكثر من مادة.</p></>}<div style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e5e5e5'}}><p><b>💰 Paiement à l'inscription</b></p><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><input name="payment_amount" type="number" min="0" step="0.01" placeholder="Montant (DH) — optionnel"/><input name="payment_date" type="date" defaultValue={moroccoDate()}/></div><small style={{opacity:.7}}>Si un montant est indiqué, le paiement sera enregistré automatiquement et valable 1 mois.</small></div><button>Ajouter l'élève</button></form></Box></div>}
 
-      {tab === 'students_list' && <div className="cols"><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => setSelected(s)} deleteAction={() => removeStudent(s.id)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
+      {tab === 'students_list' && <div className="cols"><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => setSelected(s)} deleteAction={() => removeStudent(s.id)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><div style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e5e5e5'}}><p><b>💰 Renouveler l'abonnement</b></p><input type="number" min="1" step="0.01" placeholder="Montant (DH)" value={renewAmount} onChange={e=>setRenewAmount(e.target.value)}/><input type="date" value={renewDate} onChange={e=>setRenewDate(e.target.value)}/><small style={{display:'block',opacity:.7,margin:'6px 0'}}>Le nouvel abonnement sera valable 1 mois à partir de la date choisie.</small><button onClick={renewSubscription}>🔄 Renouveler l'abonnement</button></div><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
 
       {tab === 'teachers' && <div className="cols"><Box title="Ajouter un professeur"><form className="form" onSubmit={e => addSimple(e, 'teachers', { full_name: String(new FormData(e.currentTarget).get('name') || ''), phone: String(new FormData(e.currentTarget).get('phone') || '') || null, email: String(new FormData(e.currentTarget).get('email') || '') || null })}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email"/><input name="phone" placeholder="Téléphone"/><button>Ajouter</button></form></Box><Box title="Professeurs">{teachers.map(t => <Row key={t.id} title={t.full_name || t.name} sub={t.email || t.phone || ''} action={() => remove('teachers', t.id)}/>)}{!teachers.length && <p className="empty">Aucun professeur.</p>}</Box></div>}
 
