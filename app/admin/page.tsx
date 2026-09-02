@@ -37,7 +37,8 @@ async function sendStudentQrEmail(student: any) {
         email: student.email,
         qr_code: student.qr_code,
         qr_url: qrUrl,
-        student_url: studentUrl,
+logo_url: logoUrl,
+student_url: studentUrl,
       },
     }),
   });
