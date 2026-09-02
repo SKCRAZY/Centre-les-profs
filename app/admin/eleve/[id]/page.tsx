@@ -1,0 +1,15 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {useParams,useRouter} from 'next/navigation';
+import {QRCodeSVG} from 'qrcode.react';
+import {supabase} from '../../../lib/supabase';
+
+export default function AdminStudentPage(){
+ const {id}=useParams(); const router=useRouter(); const [s,setS]=useState<any>(null); const [subjects,setSubjects]=useState<any[]>([]); const [presence,setPresence]=useState<any[]>([]); const [payments,setPayments]=useState<any[]>([]); const [amount,setAmount]=useState(''); const [date,setDate]=useState(new Date().toISOString().slice(0,10)); const [error,setError]=useState('');
+ const load=async()=>{const [a,b,c,d,e]=await Promise.all([supabase.from('students').select('*').eq('id',id).single(),supabase.from('student_subjects').select('subjects(name)').eq('student_id',id),supabase.from('attendance').select('*').eq('student_id',id),supabase.from('payments').select('*').eq('student_id',id).order('created_at',{ascending:false}),supabase.from('subjects').select('*')]);if(a.error)setError(a.error.message);setS(a.data);setSubjects(b.data||[]);setPresence(c.data||[]);setPayments(d.data||[])};
+ useEffect(()=>{load()},[id]);
+ const renew=async()=>{const n=Number(amount);if(!n||n<=0)return setError('Entrez un montant valide.');const v=new Date(date+'T00:00:00');v.setMonth(v.getMonth()+1);const {error}=await supabase.from('payments').insert({student_id:id,amount:n,status:'Payé',paid_at:new Date(date+'T00:00:00').toISOString(),valid_until:v.toISOString().slice(0,10)});if(error)setError(error.message);else{setAmount('');load()}};
+ if(!s)return <main><section><h2>{error||'Chargement...'}</h2></section></main>;
+ const last=payments[0]; const active=last?.valid_until && new Date(last.valid_until+'T23:59:59')>=new Date();
+ return <main><header><button onClick={()=>router.push('/admin')}>← Retour aux élèves</button></header><section><p className="tag">DOSSIER ÉLÈVE</p><h1>{s.full_name}</h1><div className="cards"><article><h3>👤 Informations</h3><p><b>Niveau:</b> {s.level}</p><p><b>Téléphone:</b> {s.phone||'-'}</p><p><b>Email:</b> {s.email||'-'}</p><p><b>Code:</b> {s.qr_code}</p></article><article><h3>📱 QR Code</h3>{s.qr_code&&<QRCodeSVG value={s.qr_code} size={180}/>}</article><article><h3>💳 Abonnement</h3><p>{active?'🟢 Actif':'🔴 Expiré / aucun abonnement'}</p><p>Valable jusqu'au: {last?.valid_until||'-'}</p></article></div><div className="cards"><article><h3>📚 Matières</h3>{subjects.map((x:any,i)=><p key={i}>📚 {x.subjects?.name}</p>)}</article><article><h3>📅 Présence</h3><p>Présent: {presence.filter(x=>x.status==='Présent').length}</p><p>Absent: {presence.filter(x=>x.status==='Absent').length}</p></article><article><h3>💰 Renouveler l'abonnement</h3><input type="number" placeholder="Montant (DH)" value={amount} onChange={e=>setAmount(e.target.value)}/><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><button onClick={renew}>🔄 Renouveler</button>{error&&<p>{error}</p>}</article></div></section></main>
+}
