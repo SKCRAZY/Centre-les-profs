@@ -195,7 +195,7 @@ export default function Admin() {
   const filteredStudents = students.filter(s => { const q = search.toLowerCase().trim(); return !q || [s.full_name, s.email, s.phone].some(v => String(v || '').toLowerCase().includes(q)); });
 
   return <main className="dash">
-    <aside><a className="logo" href="/"><img src="/logo.svg"/><span>Centre<br/><b>Les Profs</b></span></a>{tabs.map(t => <button key={t[0]} className={tab === t[0] ? 'active' : ''} onClick={() => setTab(t[0])}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className="public" href="/">↗ Site public</a><button className="logout" onClick={() => supabase.auth.signOut()}>🚪 Déconnexion</button></aside>
+    <aside><a className="logo" href="/"><img src="/logo.png"/><span>Centre<br/><b>Les Profs</b></span></a>{tabs.map(t => <button key={t[0]} className={tab === t[0] ? 'active' : ''} onClick={() => setTab(t[0])}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className="public" href="/">↗ Site public</a><button className="logout" onClick={() => supabase.auth.signOut()}>🚪 Déconnexion</button></aside>
     <section className="content"><div className="top"><div><p className="tag">ADMINISTRATION</p><h1>{tabs.find(t => t[0] === tab)?.[2]}</h1></div><b>🔴 Admin</b></div>
       {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
       {loading ? <div className="loading">Chargement de Supabase...</div> : <>
