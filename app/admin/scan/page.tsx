@@ -57,8 +57,6 @@ export default function ScanPage() {
       setClosed(false);
       setMessage('🟢 Séance en cours. Scanner prêt.');
     } else if (checkMoroccoTime()) {
-      // After 22:00 the current session is considered finished, so the
-      // button becomes available again immediately for a new session.
       setStarted(false);
       setClosed(false);
       setMessage('🔒 Séance terminée. Vous pouvez démarrer une nouvelle séance.');
@@ -144,7 +142,7 @@ export default function ScanPage() {
       const { data } = await supabase.auth.getSession();
       if (cancelled) return;
       if (!data.session) {
-        setMessage("Connecte-toi à l’administration d’abord.");
+        setMessage('Connecte-toi à l’administration d’abord.');
         return;
       }
 
@@ -177,10 +175,25 @@ export default function ScanPage() {
                 return;
               }
 
+              // The QR can contain either the raw student code or the full
+              // /eleve/<code> portal URL. Accept both formats.
+              let studentCode = decodedText.trim();
+              try {
+                const parsed = new URL(studentCode);
+                const marker = '/eleve/';
+                const index = parsed.pathname.toLowerCase().indexOf(marker);
+                if (index !== -1) {
+                  studentCode = decodeURIComponent(parsed.pathname.slice(index + marker.length));
+                }
+              } catch {
+                // Not a URL: keep the raw QR code.
+              }
+              studentCode = studentCode.trim().replace(/\/$/, '').toUpperCase();
+
               const { data: s, error: se } = await supabase
                 .from('students')
                 .select('id,full_name,level,qr_code')
-                .eq('qr_code', decodedText)
+                .eq('qr_code', studentCode)
                 .maybeSingle();
 
               if (se) throw se;
