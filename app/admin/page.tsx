@@ -111,12 +111,6 @@ export default function Admin() {
       const { error: ssError } = await supabase.from('student_subjects').insert(subjectIds.map(subject_id => ({ student_id: student.id, subject_id })));
       if (ssError) { setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
     }
-    if (studentEmail && student.qr_code) {
-      const { error: sendError } = await supabase.functions.invoke('send-qr', {
-        body: { email: studentEmail, name: full_name, qrCode: student.qr_code },
-      });
-      if (sendError) setError('Élève ajouté, mais email QR non envoyé. ' + sendError.message);
-    }
     e.currentTarget.reset(); refresh();
   };
 
