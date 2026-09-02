@@ -23,7 +23,8 @@ async function sendStudentQrEmail(student: any) {
 
   const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
   const qrUrl = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(studentUrl)}`;
-
+  const logoUrl = `${window.location.origin}/logo.png`;
+  
   const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
