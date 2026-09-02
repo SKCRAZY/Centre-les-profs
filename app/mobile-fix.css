@@ -1,32 +1,45 @@
 /* Responsive header/logo fix — mobile + tablet only */
 @media (max-width: 1024px) {
   header {
-    min-height: 64px;
-    height: auto;
+    min-height: 64px !important;
+    height: 64px !important;
     padding: 8px 24px !important;
+    overflow: hidden;
   }
 
   .brand {
-    min-width: 0;
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    max-width: 100%;
     gap: 9px;
+    flex: 0 1 auto;
   }
 
   .brand img {
+    display: block !important;
     width: 46px !important;
     height: 46px !important;
-    flex: 0 0 46px;
-    object-fit: cover;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    flex: 0 0 46px !important;
+    object-fit: contain !important;
+    border-radius: 50% !important;
   }
 
   .brand b {
     font-size: 15px !important;
-    white-space: nowrap;
+    line-height: 1 !important;
+    white-space: nowrap !important;
   }
 }
 
 @media (max-width: 700px) {
   header {
-    min-height: 58px;
+    min-height: 58px !important;
+    height: 58px !important;
     padding: 7px 14px !important;
     gap: 8px;
   }
@@ -34,20 +47,26 @@
   .brand {
     gap: 7px;
     flex: 1 1 auto;
-    min-width: 0;
+    min-width: 0 !important;
   }
 
   .brand img {
-    width: 42px !important;
-    height: 42px !important;
-    flex: 0 0 42px;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    flex: 0 0 40px !important;
+    object-fit: contain !important;
   }
 
   .brand b {
     font-size: 14px !important;
-    line-height: 1.1;
+    line-height: 1.1 !important;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap !important;
   }
 
   header nav {
@@ -62,6 +81,7 @@
   header nav .red {
     padding: 10px 12px !important;
     font-size: 12px !important;
+    line-height: 1 !important;
     white-space: nowrap;
   }
 }
