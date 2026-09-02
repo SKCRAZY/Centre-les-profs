@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../lib/supabase';
 
