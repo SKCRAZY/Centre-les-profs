@@ -13,12 +13,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const nylasApiKey = process.env.NYLAS_API_KEY?.trim();
-    const nylasDomain = process.env.NYLAS_EMAIL_DOMAIN?.trim();
+    const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+    const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim();
+    const senderName = process.env.BREVO_SENDER_NAME?.trim() || "Centre Les Profs";
 
-    if (!nylasApiKey || !nylasDomain) {
+    if (!brevoApiKey || !senderEmail) {
       return NextResponse.json(
-        { error: "Configuration email manquante (NYLAS_API_KEY / NYLAS_EMAIL_DOMAIN)." },
+        { error: "Configuration Brevo manquante (BREVO_API_KEY / BREVO_SENDER_EMAIL)." },
         { status: 500 }
       );
     }
@@ -26,47 +27,38 @@ export async function POST(request: Request) {
     const safeName = escapeHtml(String(name || ""));
     const safeQrCode = escapeHtml(code);
     const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=300`;
-    const requestId = crypto.randomUUID();
 
-    const response = await fetch(
-      `https://api.eu.nylas.com/v3/domains/${encodeURIComponent(nylasDomain)}/messages/send`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${nylasApiKey}`,
-          "Content-Type": "application/json",
-          "Idempotency-Key": requestId,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "api-key": brevoApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: senderName,
+          email: senderEmail,
         },
-        body: JSON.stringify({
-          from: {
-            name: "Centre Les Profs",
-            email: `hello@${nylasDomain}`,
-          },
-          to: [{ name: String(name || "Élève"), email: recipient }],
-          subject: "Votre QR Code — Centre Les Profs",
-          body: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto"><h2>Centre Les Profs</h2><p>Bonjour ${safeName},</p><p>Voici votre QR Code pour enregistrer votre présence :</p><div style="background:#fff;padding:20px;text-align:center;border:1px solid #eee;border-radius:12px"><img src="${qrImage}" alt="QR Code" width="300" height="300" /></div><p><strong>Code :</strong> ${safeQrCode}</p><p>Gardez ce QR Code et présentez-le à l'administration lors de votre présence.</p></div>`,
-        }),
-      }
-    );
+        to: [{ name: String(name || "Élève"), email: recipient }],
+        subject: "Votre QR Code — Centre Les Profs",
+        htmlContent: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto"><h2>Centre Les Profs</h2><p>Bonjour ${safeName},</p><p>Voici votre QR Code pour enregistrer votre présence :</p><div style="background:#fff;padding:20px;text-align:center;border:1px solid #eee;border-radius:12px"><img src="${qrImage}" alt="QR Code" width="300" height="300" /></div><p><strong>Code :</strong> ${safeQrCode}</p><p>Gardez ce QR Code et présentez-le à l'administration lors de votre présence.</p></div>`,
+      }),
+    });
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const nylasError = result?.error || {};
-      console.error("NYLAS_SEND_ERROR", {
+      console.error("BREVO_SEND_ERROR", {
         status: response.status,
-        type: nylasError?.type || "unknown",
-        message: nylasError?.message || result?.message || "Nylas error",
-        request_id: result?.request_id || null,
-        domain: nylasDomain,
-        endpoint: "https://api.eu.nylas.com",
-        hasApiKey: !!nylasApiKey,
+        message: result?.message || "Brevo error",
+        code: result?.code || null,
+        senderEmail,
+        hasApiKey: !!brevoApiKey,
       });
       return NextResponse.json(
         {
-          error: nylasError?.message || result?.message || "Nylas error",
-          type: nylasError?.type || "unknown",
-          request_id: result?.request_id || null,
+          error: result?.message || "Brevo error",
+          code: result?.code || "unknown",
           status: response.status,
         },
         { status: response.status }
@@ -75,11 +67,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      id: result?.data?.message_id || result?.request_id,
-      request_id: result?.request_id || null,
+      id: result?.messageId || null,
     });
   } catch (error) {
-    console.error("NYLAS_SEND_EXCEPTION", error instanceof Error ? error.message : "Unknown error");
+    console.error("BREVO_SEND_EXCEPTION", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Impossible d'envoyer l'email.",
