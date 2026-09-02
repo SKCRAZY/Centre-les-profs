@@ -27,8 +27,9 @@ export async function POST(request: Request) {
     const safeQrCode = escapeHtml(code);
     const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(code)}&size=300`;
 
+    // The Centre Les Profs Nylas app/domain is hosted in EU.
     const response = await fetch(
-      `https://api.us.nylas.com/v3/domains/${encodeURIComponent(nylasDomain)}/messages/send`,
+      `https://api.eu.nylas.com/v3/domains/${encodeURIComponent(nylasDomain)}/messages/send`,
       {
         method: "POST",
         headers: {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           from: {
             name: "Centre Les Profs",
-            email: `no-reply@${nylasDomain}`,
+            email: `hello@${nylasDomain}`,
           },
           to: [{ name: String(name || "Élève"), email: recipient }],
           subject: "Votre QR Code — Centre Les Profs",
