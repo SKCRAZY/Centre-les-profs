@@ -187,7 +187,7 @@ export default function Admin() {
   };
 
   if (!authReady) return <div className="loading">Chargement...</div>;
-  if (!session) return <main className="loginPage"><form className="loginBox" onSubmit={async e => { e.preventDefault(); setLoginError(''); const { error: e2 } = await supabase.auth.signInWithPassword({ email, password }); if (e2) setLoginError('Email ou mot de passe incorrect.'); }}><img src="/logo.svg" alt="Centre Les Profs"/><h1>Administration</h1>{loginError && <div className="error">{loginError}</div>}<input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required/><input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} required/><button>Se connecter</button></form></main>;
+  if (!session) return <main className="loginPage"><form className="loginBox" onSubmit={async e => { e.preventDefault(); setLoginError(''); const { error: e2 } = await supabase.auth.signInWithPassword({ email, password }); if (e2) setLoginError('Email ou mot de passe incorrect.'); }}><img src="/logo.png" alt="Centre Les Profs"/><h1>Administration</h1>{loginError && <div className="error">{loginError}</div>}<input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required/><input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} required/><button>Se connecter</button></form></main>;
   if (!isAdmin) return <main className="loginPage"><div className="loginBox"><h1>Accès refusé</h1><p>Ce compte n'a pas les droits administrateur.</p><button onClick={() => supabase.auth.signOut()}>Se déconnecter</button></div></main>;
 
   const today = moroccoDate();
