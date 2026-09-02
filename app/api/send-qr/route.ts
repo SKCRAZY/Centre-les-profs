@@ -53,6 +53,15 @@ export async function POST(request: Request) {
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
       const nylasError = result?.error || {};
+      console.error("NYLAS_SEND_ERROR", {
+        status: response.status,
+        type: nylasError?.type || "unknown",
+        message: nylasError?.message || result?.message || "Nylas error",
+        request_id: result?.request_id || null,
+        domain: nylasDomain,
+        endpoint: "https://api.eu.nylas.com",
+        hasApiKey: !!nylasApiKey,
+      });
       return NextResponse.json(
         {
           error: nylasError?.message || result?.message || "Nylas error",
@@ -70,6 +79,7 @@ export async function POST(request: Request) {
       request_id: result?.request_id || null,
     });
   } catch (error) {
+    console.error("NYLAS_SEND_EXCEPTION", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json(
       {
         error: "Impossible d'envoyer l'email.",
