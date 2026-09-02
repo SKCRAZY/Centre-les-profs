@@ -1,0 +1,67 @@
+/* Responsive header/logo fix — mobile + tablet only */
+@media (max-width: 1024px) {
+  header {
+    min-height: 64px;
+    height: auto;
+    padding: 8px 24px !important;
+  }
+
+  .brand {
+    min-width: 0;
+    gap: 9px;
+  }
+
+  .brand img {
+    width: 46px !important;
+    height: 46px !important;
+    flex: 0 0 46px;
+    object-fit: cover;
+  }
+
+  .brand b {
+    font-size: 15px !important;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 700px) {
+  header {
+    min-height: 58px;
+    padding: 7px 14px !important;
+    gap: 8px;
+  }
+
+  .brand {
+    gap: 7px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .brand img {
+    width: 42px !important;
+    height: 42px !important;
+    flex: 0 0 42px;
+  }
+
+  .brand b {
+    font-size: 14px !important;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  header nav {
+    flex: 0 0 auto;
+    margin-left: auto !important;
+  }
+
+  header nav a:not(.red) {
+    display: none !important;
+  }
+
+  header nav .red {
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+  }
+}
