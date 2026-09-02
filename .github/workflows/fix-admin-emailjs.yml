@@ -1,0 +1,30 @@
+name: Fix Admin EmailJS
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update EmailJS template ID only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/admin/page.tsx')
+          s = p.read_text()
+          s = s.replace("const EMAILJS_TEMPLATE_ID = 'template_1ir8unj';", "const EMAILJS_TEMPLATE_ID = 'template_49z03mm';")
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/admin/page.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix EmailJS template ID without changing admin dashboard"
+          git push
