@@ -15,7 +15,7 @@ const tabs = [
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
 
 const EMAILJS_SERVICE_ID = 'service_hlu5obd';
-const EMAILJS_TEMPLATE_ID = 'template_1ir8unj';
+const EMAILJS_TEMPLATE_ID = 'template_49z03mm';
 const EMAILJS_PUBLIC_KEY = 'lpqXMoXXz9uf27_Em';
 
 async function sendStudentQrEmail(student: any) {
