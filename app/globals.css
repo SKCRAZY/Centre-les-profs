@@ -38,3 +38,42 @@
 
 
 .subject-option{cursor:pointer;position:relative;display:block}.subject-option input{position:absolute;opacity:0;pointer-events:none}.subject-option span{display:block;padding:14px 12px;border:1px solid #ddd;border-radius:12px;font-weight:600;text-align:center;transition:.2s}.subject-option:has(input:checked) span{background:#e53935;color:#fff;border-color:#e53935;box-shadow:0 4px 12px rgba(229,57,53,.25)}
+
+
+/* Centre Les Profs — red, gold and black theme */
+:root{--red:#d90812;--red-dark:#98050b;--gold:#f5bf28;--gold-light:#ffe18a;--black:#0d0d10;--ink:#17171b;--paper:#fff9f6;--muted:#6f6464}
+body{background:linear-gradient(180deg,#fff8f5 0%,#f8f5f4 100%);color:var(--ink)}
+header{background:linear-gradient(90deg,#e30a14,#b80710);border-bottom:3px solid var(--gold);color:#fff}
+.brand b{color:#fff;text-shadow:0 2px 5px #0008}
+.brand img,.logo img{border:2px solid var(--gold);box-shadow:0 5px 18px #0005}
+.brand+nav a{color:#fff}
+.red,.form button,.loginBox button,.button,section button:not(.delete),.box>button{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;border:1px solid #ff6b70;box-shadow:0 8px 20px #98050b33}
+.hero{background:radial-gradient(circle at 78% 20%,#ffe8a1 0 8%,transparent 26%),radial-gradient(circle at 92% 90%,#ffb6a4 0,transparent 30%),linear-gradient(135deg,#fff7f2,#ffe9df 55%,#fff7f2)}
+.tag{color:var(--red);text-shadow:0 1px 0 #fff}
+.hero h1 span{color:var(--red)}
+.heroIcon{background:radial-gradient(circle at 35% 30%,#292931,#08080a 68%);border-color:var(--gold);box-shadow:0 30px 70px #8d080d40,0 0 0 12px #f5bf2818}
+.cards article,.box,.metric{background:linear-gradient(180deg,#fff,#fffafa);border-color:#f0d5c8;box-shadow:0 12px 30px #7f19100d}
+.cards article{border-top:4px solid var(--gold)}
+.cards article>b{color:var(--red)}
+.dark{background:linear-gradient(135deg,#0b0b0e,#241015 58%,#0b0b0e);border-top:4px solid var(--gold)}
+footer{background:linear-gradient(90deg,#09090b,#2a080b,#09090b);border-top:3px solid var(--gold);color:#f4d88b}
+.dash aside{background:linear-gradient(180deg,#16070a,#09090b);border-right:2px solid #4b1b16}
+.logo b{color:var(--gold)}
+.dash aside>button.active,.dash aside>button:hover{background:linear-gradient(90deg,#3b1116,#211014);box-shadow:inset 4px 0 var(--gold);color:#fff}
+.public{background:linear-gradient(135deg,var(--red),var(--red-dark));border:1px solid #f05b60}
+.top>b{background:#fff5e7;border-color:#f3cf7a;color:#8c6100}
+.metric{border-top:3px solid var(--gold)}
+.metric b{color:var(--red)}
+input,select,textarea{border-color:#ead5ce;background:#fffdfc}
+input:focus,select:focus,textarea:focus{outline:2px solid #f5bf2855;border-color:var(--gold)}
+.row{border-top-color:#f0dfd8}
+.row:hover{background:#fff5ef}
+.delete{border-color:#f3b1ae;color:#a60008}
+.pick{border-color:#ead5ce}
+.pick:hover{border-color:var(--gold);background:#fff8e8}
+.qr svg{border-color:var(--gold);background:#fff}
+.subject-option:has(input:checked) span{background:linear-gradient(135deg,var(--red),var(--red-dark));border-color:var(--gold);box-shadow:0 6px 18px #d9081233}
+.loginPage{background:radial-gradient(circle at 50% 0,#4b1016 0,transparent 42%),linear-gradient(135deg,#0a0a0c,#25070b)}
+.loginBox{border-top:5px solid var(--gold);box-shadow:0 24px 70px #0008}
+.error{background:#fff0f0!important;border:1px solid #f3b0b0;color:#a40008;padding:12px;border-radius:10px}
+@media(max-width:600px){header{background:linear-gradient(90deg,#d90812,#a3060c)}.dash aside{border-top:2px solid var(--gold)}.dash aside>nav>button.active{background:#3b1116!important;box-shadow:inset 0 -3px var(--gold)!important}}
