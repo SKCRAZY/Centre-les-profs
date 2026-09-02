@@ -112,8 +112,10 @@ export default function Admin() {
       if (ssError) { setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
     }
     if (studentEmail && student.qr_code) {
-      const r = await fetch('/api/send-qr', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: studentEmail, name: full_name, qrCode: student.qr_code }) });
-      if (!r.ok) setError('Élève ajouté, mais email QR non envoyé.');
+      const { error: sendError } = await supabase.functions.invoke('send-qr', {
+        body: { email: studentEmail, name: full_name, qrCode: student.qr_code },
+      });
+      if (sendError) setError('Élève ajouté, mais email QR non envoyé. ' + sendError.message);
     }
     e.currentTarget.reset(); refresh();
   };
