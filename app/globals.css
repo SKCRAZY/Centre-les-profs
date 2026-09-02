@@ -129,3 +129,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid #f5bf2855;border-color
   .hero h1{font-size:42px!important}
   .heroIcon{margin-top:26px!important}
 }
+
+
+/* Keep the logo visible without cropping */
+.brand img,.logo img{
+  object-fit:contain!important;
+  object-position:center!important;
+  background:#0d0d10!important;
+}
+@media (max-width:700px){
+  .brand img{
+    width:54px!important;
+    height:54px!important;
+    border-radius:10px!important;
+    padding:2px!important;
+  }
+}
