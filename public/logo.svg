@@ -6,7 +6,6 @@
 </defs>
 <rect width="512" height="768" fill="url(#bg)"/>
 <path d="M0 655 Q100 625 190 650 T380 645 T512 650 V768H0Z" fill="#b9231e" opacity=".55"/>
-<g filter="url(#shadow)"><path d="M30 62H482V157H30Z" rx="12" fill="#ffc400"/><text x="256" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="45" font-weight="900" font-style="italic" fill="white" stroke="#c75d00" stroke-width="2">CENTRE LES PROFS</text></g>
 <path d="M390 0l13 37 39 3-30 25 9 38-31-20-33 20 12-38-29-25 39-3z" fill="url(#gold)" opacity=".9"/>
 <g filter="url(#shadow)">
  <circle cx="256" cy="430" r="183" fill="#090a0d" stroke="#f5d34b" stroke-width="8"/>
@@ -24,6 +23,4 @@
  <rect x="218" y="570" width="45" height="48" fill="#d5d5d5"/>
  <path d="M245 570c26 0 37 10 37 24s-11 24-37 24" fill="#d71920"/>
 </g>
-<path d="M90 690h332" stroke="#fff" stroke-width="3" opacity=".55"/>
-<text x="256" y="735" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="white">CENTRE LES PROFS</text>
 </svg>
