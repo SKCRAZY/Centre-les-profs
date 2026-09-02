@@ -9,10 +9,43 @@ const levels = ['3ème année collège', 'Tronc Commun', '1ère année Bac', '2�
 const tabs = [
   ['home', '🏠', "Vue d'ensemble"], ['students', '➕', 'Ajouter un élève'], ['students_list', '👨‍🎓', 'Élèves inscrits'], ['teachers', '👨‍🏫', 'Professeurs'],
   ['subjects', '📚', 'Matières'], ['schedule', '🗓️', 'Emploi du temps'], ['qr', '📱', 'QR & Présence'],
-['news', '📢', 'Annonces'], ['stats', '📊', 'Statistiques'],
+  ['news', '📢', 'Annonces'], ['stats', '📊', 'Statistiques'],
 ];
 
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
+
+const EMAILJS_SERVICE_ID = 'service_hlu5obd';
+const EMAILJS_TEMPLATE_ID = 'template_1ir8unj';
+const EMAILJS_PUBLIC_KEY = 'lpqXMoXXz9uf27_Em';
+
+async function sendStudentQrEmail(student: any) {
+  if (!student?.email || !student?.qr_code) return;
+
+  const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
+  const qrUrl = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(studentUrl)}`;
+
+  const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: EMAILJS_SERVICE_ID,
+      template_id: EMAILJS_TEMPLATE_ID,
+      user_id: EMAILJS_PUBLIC_KEY,
+      template_params: {
+        name: student.full_name,
+        email: student.email,
+        qr_code: student.qr_code,
+        qr_url: qrUrl,
+        student_url: studentUrl,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || 'Email non envoyé');
+  }
+}
 
 export default function Admin() {
   const [tab, setTab] = useState('home');
@@ -128,7 +161,17 @@ export default function Admin() {
       });
       if (payError) { setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
     }
-    e.currentTarget.reset(); setStudentLevel(''); refresh();
+
+    if (studentEmail && student?.qr_code) {
+      try {
+        await sendStudentQrEmail(student);
+        setError('✅ Élève ajouté et QR Code envoyé par email à ' + studentEmail);
+      } catch (mailError: any) {
+        setError('⚠️ Élève ajouté, mais l’email QR n’a pas été envoyé. ' + (mailError?.message || 'Erreur EmailJS.'));
+      }
+    }
+
+    e.currentTarget.reset(); setStudentLevel(''); await refresh();
   };
 
   const renewSubscription = async () => {
