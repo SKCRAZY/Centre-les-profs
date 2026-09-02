@@ -18,11 +18,39 @@ const EMAILJS_SERVICE_ID = 'service_hlu5obd';
 const EMAILJS_TEMPLATE_ID = 'template_49z03mm';
 const EMAILJS_PUBLIC_KEY = 'lpqXMoXXz9uf27_Em';
 
+async function getStudentQrUrl(student: any, studentUrl: string) {
+  const quickChartUrl = `https://quickchart.io/qr?size=300&format=png&text=${encodeURIComponent(studentUrl)}`;
+  const fileName = `${student.id}.png`;
+
+  try {
+    const imageResponse = await fetch(quickChartUrl);
+    if (!imageResponse.ok) throw new Error('QR PNG impossible à récupérer');
+    const blob = await imageResponse.blob();
+
+    const { error: uploadError } = await supabase.storage
+      .from('qr-codes')
+      .upload(fileName, blob, {
+        contentType: 'image/png',
+        upsert: true,
+        cacheControl: '31536000',
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('qr-codes').getPublicUrl(fileName);
+    if (!data?.publicUrl) throw new Error('URL publique du QR introuvable');
+    return data.publicUrl;
+  } catch (storageError) {
+    console.error('QR Storage error:', storageError);
+    return quickChartUrl;
+  }
+}
+
 async function sendStudentQrEmail(student: any) {
   if (!student?.email || !student?.qr_code) return;
 
   const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
-  const qrUrl = `https://quickchart.io/qr?size=300&format=png&text=${encodeURIComponent(studentUrl)}`;
+  const qrUrl = await getStudentQrUrl(student, studentUrl);
   const logoUrl = `${window.location.origin}/logo.png`;
   
   const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -37,8 +65,8 @@ async function sendStudentQrEmail(student: any) {
         email: student.email,
         qr_code: student.qr_code,
         qr_url: qrUrl,
-logo_url: logoUrl,
-student_url: studentUrl,
+        logo_url: logoUrl,
+        student_url: studentUrl,
       },
     }),
   });
