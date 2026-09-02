@@ -22,7 +22,7 @@ async function sendStudentQrEmail(student: any) {
   if (!student?.email || !student?.qr_code) return;
 
   const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
-  const qrUrl = `https://quickchart.io/qr?size=300&format=png&text=${encodeURIComponent(studentUrl)}`;
+  const qrUrl = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(studentUrl)}`;
 
   const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
