@@ -114,19 +114,18 @@ export default function Admin() {
     const level = String(f.get('level') || '');
     const phone = String(f.get('phone') || '').trim() || null;
     const whatsappNumber = normalizeWhatsAppPhone(phone);
-    const whatsappWindow = whatsappNumber ? window.open(`https://wa.me/${whatsappNumber}`, '_blank') : null;
 
     const { data: existing, error: checkError } = await supabase.from('students').select('id,full_name,email');
-    if (checkError) { whatsappWindow?.close(); setError(checkError.message); return; }
+    if (checkError) { setError(checkError.message); return; }
     const norm = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase();
-    if (existing?.some((s: any) => norm(s.full_name || '') === norm(full_name))) { whatsappWindow?.close(); setError('⚠️ Cet élève est déjà inscrit avec le même nom.'); return; }
-    if (studentEmail && existing?.some((s: any) => norm(s.email || '') === norm(studentEmail))) { whatsappWindow?.close(); setError('⚠️ Cet email est déjà utilisé par un autre élève.'); return; }
+    if (existing?.some((s: any) => norm(s.full_name || '') === norm(full_name))) { setError('⚠️ Cet élève est déjà inscrit avec le même nom.'); return; }
+    if (studentEmail && existing?.some((s: any) => norm(s.email || '') === norm(studentEmail))) { setError('⚠️ Cet email est déjà utilisé par un autre élève.'); return; }
     const { data: student, error: insertError } = await supabase.from('students').insert({ full_name, email: studentEmail || null, phone, level }).select().single();
-    if (insertError) { whatsappWindow?.close(); setError(insertError.message); return; }
+    if (insertError) { setError(insertError.message); return; }
     const subjectIds = f.getAll('subject_ids').map(String);
     if (subjectIds.length) {
       const { error: ssError } = await supabase.from('student_subjects').insert(subjectIds.map(subject_id => ({ student_id: student.id, subject_id })));
-      if (ssError) { whatsappWindow?.close(); setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
+      if (ssError) { setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
     }
     const amount = Number(f.get('payment_amount') || 0);
     const paidDate = String(f.get('payment_date') || moroccoDate());
@@ -137,10 +136,10 @@ export default function Admin() {
         paid_at: new Date(paidDate + 'T00:00:00').toISOString(),
         valid_until: valid.toISOString().slice(0, 10)
       });
-      if (payError) { whatsappWindow?.close(); setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
+      if (payError) { setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
     }
 
-    if (whatsappWindow && whatsappNumber) {
+    if (whatsappNumber) {
       const subjectNames = subjectIds
         .map((id) => subjects.find((subject: any) => String(subject.id) === String(id))?.name)
         .filter(Boolean)
@@ -148,7 +147,8 @@ export default function Admin() {
       const clp = student.qr_code || 'Non disponible';
       const qrLink = clp ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : '';
       const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
-      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      return;
     }
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
   };
