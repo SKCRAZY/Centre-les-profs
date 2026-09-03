@@ -12,9 +12,15 @@ const normalizePhone = (phone: string) => {
 
 export default function PhoneDuplicateGuard() {
   useEffect(() => {
-    const handleSubmit = async (event: Event) => {
+    const handleSubmit = (event: Event) => {
       const form = event.target as HTMLFormElement;
       if (!form?.querySelector('input[name="name"]') || !form?.querySelector('input[name="phone"]')) return;
+
+      // Allow the re-submission after the duplicate check has passed.
+      if (form.dataset.phoneGuardBypass === 'true') {
+        delete form.dataset.phoneGuardBypass;
+        return;
+      }
 
       const phoneInput = form.querySelector<HTMLInputElement>('input[name="phone"]');
       const phone = phoneInput?.value.trim() || '';
@@ -23,15 +29,31 @@ export default function PhoneDuplicateGuard() {
       const normalized = normalizePhone(phone);
       if (!normalized) return;
 
-      const { data, error } = await supabase.from('students').select('phone');
-      if (error) return;
+      // Stop the original submit immediately. The previous version waited for
+      // Supabase first, which was too late because React could already insert.
+      event.preventDefault();
+      event.stopImmediatePropagation();
 
-      const exists = (data || []).some((student: any) => normalizePhone(String(student.phone || '')) === normalized);
-      if (exists) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        alert('Ce numéro est déjà utilisé.');
-      }
+      void (async () => {
+        const { data, error } = await supabase.from('students').select('phone');
+        if (error) {
+          form.dataset.phoneGuardBypass = 'true';
+          form.requestSubmit();
+          return;
+        }
+
+        const exists = (data || []).some(
+          (student: any) => normalizePhone(String(student.phone || '')) === normalized
+        );
+
+        if (exists) {
+          alert('Ce numéro est déjà utilisé.');
+          return;
+        }
+
+        form.dataset.phoneGuardBypass = 'true';
+        form.requestSubmit();
+      })();
     };
 
     document.addEventListener('submit', handleSubmit, true);
