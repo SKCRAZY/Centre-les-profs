@@ -141,7 +141,6 @@ export default function Admin() {
     }
 
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
-    if (whatsappWindow && whatsappNumber) whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;
   };
 
   const renewSubscription = async () => {
