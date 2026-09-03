@@ -146,7 +146,7 @@ export default function Admin() {
         .join('، ') || 'Aucune';
       const clp = student.qr_code || 'Non disponible';
       const qrLink = clp ? `https://quickchart.io/qr?size=900&format=png&text=${encodeURIComponent(clp)}` : '';
-      const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
+      const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp !== 'Non disponible' ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : 'Non disponible'}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
       window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
       return;
     }
