@@ -114,7 +114,7 @@ export default function Admin() {
     const level = String(f.get('level') || '');
     const phone = String(f.get('phone') || '').trim() || null;
     const whatsappNumber = normalizeWhatsAppPhone(phone);
-    const whatsappWindow = whatsappNumber ? window.open('about:blank', '_blank') : null;
+    const whatsappWindow = whatsappNumber ? window.open(`https://wa.me/${whatsappNumber}`, '_blank') : null;
 
     const { data: existing, error: checkError } = await supabase.from('students').select('id,full_name,email');
     if (checkError) { whatsappWindow?.close(); setError(checkError.message); return; }
