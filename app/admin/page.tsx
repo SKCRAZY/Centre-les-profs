@@ -140,6 +140,16 @@ export default function Admin() {
       if (payError) { whatsappWindow?.close(); setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
     }
 
+    if (whatsappWindow && whatsappNumber) {
+      const subjectNames = subjectIds
+        .map((id) => subjects.find((subject: any) => String(subject.id) === String(id))?.name)
+        .filter(Boolean)
+        .join('، ') || 'Aucune';
+      const clp = student.qr_code || 'Non disponible';
+      const qrLink = clp ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : '';
+      const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
+      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    }
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
   };
 
