@@ -14,13 +14,12 @@ const tabs = [
 
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
 
-const openWhatsApp = (phone: string | null) => {
-  if (!phone) return;
+const normalizeWhatsAppPhone = (phone: string | null) => {
+  if (!phone) return '';
   let number = phone.replace(/\D/g, '');
+  if (number.startsWith('00')) number = number.slice(2);
   if (number.startsWith('0')) number = '212' + number.slice(1);
-  if (!number.startsWith('212') && phone.trim().startsWith('+')) number = phone.replace(/\D/g, '');
-  if (!number) return;
-  window.open(`https://wa.me/${number}`, '_blank');
+  return number;
 };
 
 export default function Admin() {
@@ -114,17 +113,20 @@ export default function Admin() {
     const studentEmail = String(f.get('email') || '').trim();
     const level = String(f.get('level') || '');
     const phone = String(f.get('phone') || '').trim() || null;
+    const whatsappNumber = normalizeWhatsAppPhone(phone);
+    const whatsappWindow = whatsappNumber ? window.open('about:blank', '_blank') : null;
+
     const { data: existing, error: checkError } = await supabase.from('students').select('id,full_name,email');
-    if (checkError) { setError(checkError.message); return; }
+    if (checkError) { whatsappWindow?.close(); setError(checkError.message); return; }
     const norm = (v: string) => v.trim().replace(/\s+/g, ' ').toLowerCase();
-    if (existing?.some((s: any) => norm(s.full_name || '') === norm(full_name))) { setError('⚠️ Cet élève est déjà inscrit avec le même nom.'); return; }
-    if (studentEmail && existing?.some((s: any) => norm(s.email || '') === norm(studentEmail))) { setError('⚠️ Cet email est déjà utilisé par un autre élève.'); return; }
+    if (existing?.some((s: any) => norm(s.full_name || '') === norm(full_name))) { whatsappWindow?.close(); setError('⚠️ Cet élève est déjà inscrit avec le même nom.'); return; }
+    if (studentEmail && existing?.some((s: any) => norm(s.email || '') === norm(studentEmail))) { whatsappWindow?.close(); setError('⚠️ Cet email est déjà utilisé par un autre élève.'); return; }
     const { data: student, error: insertError } = await supabase.from('students').insert({ full_name, email: studentEmail || null, phone, level }).select().single();
-    if (insertError) { setError(insertError.message); return; }
+    if (insertError) { whatsappWindow?.close(); setError(insertError.message); return; }
     const subjectIds = f.getAll('subject_ids').map(String);
     if (subjectIds.length) {
       const { error: ssError } = await supabase.from('student_subjects').insert(subjectIds.map(subject_id => ({ student_id: student.id, subject_id })));
-      if (ssError) { setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
+      if (ssError) { whatsappWindow?.close(); setError('Élève ajouté, mais matières non enregistrées: ' + ssError.message); return; }
     }
     const amount = Number(f.get('payment_amount') || 0);
     const paidDate = String(f.get('payment_date') || moroccoDate());
@@ -135,11 +137,11 @@ export default function Admin() {
         paid_at: new Date(paidDate + 'T00:00:00').toISOString(),
         valid_until: valid.toISOString().slice(0, 10)
       });
-      if (payError) { setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
+      if (payError) { whatsappWindow?.close(); setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
     }
 
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
-    openWhatsApp(phone);
+    if (whatsappWindow && whatsappNumber) whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;
   };
 
   const renewSubscription = async () => {
@@ -151,7 +153,7 @@ export default function Admin() {
     const { error: e } = await supabase.from('payments').insert({
       student_id: selected.id, amount, status: 'Payé',
       paid_at: new Date(start + 'T00:00:00').toISOString(),
-      valid_until: valid.toISOString().slice(0,10)
+      valid_until: valid.toISOString().slice(0, 10)
     });
     if (e) { setError(e.message); return; }
     setRenewAmount(''); setRenewDate(moroccoDate()); await refresh();
@@ -163,9 +165,7 @@ export default function Admin() {
     const subjectId = String(f.get('subject_id') || '');
     if (!teacherLevel || !subjectId) { setError('Choisissez le niveau et la matière.'); return; }
     const { data: teacher, error: teacherError } = await supabase.from('teachers').insert({
-      full_name: String(f.get('name') || ''),
-      email: String(f.get('email') || '') || null,
-      phone: String(f.get('phone') || '') || null
+      full_name: String(f.get('name') || ''), email: String(f.get('email') || '') || null, phone: String(f.get('phone') || '') || null
     }).select().single();
     if (teacherError || !teacher) { setError(teacherError?.message || 'Erreur lors de l’ajout du professeur.'); return; }
     const { error: subjectError } = await supabase.from('subjects').update({ teacher_id: teacher.id }).eq('id', subjectId).eq('level', teacherLevel);
@@ -211,23 +211,14 @@ export default function Admin() {
       {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
       {loading ? <div className="loading">Chargement de Supabase...</div> : <>
       {tab === 'home' && <><div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="👨‍🏫" n={teachers.length} t="Professeurs"/><Metric i="📚" n={subjects.length} t="Matières"/><Metric i="✅" n={present} t="Présents aujourd'hui"/></div><Box title="Bienvenue"><p>Gère ton centre depuis un seul endroit.</p></Box></>}
-
       {tab === 'students' && <div className="cols"><Box title="Ajouter un élève"><form className="form" onSubmit={addStudent}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email" required/><input name="phone" placeholder="Téléphone"/><select name="level" value={studentLevel} onChange={e=>setStudentLevel(e.target.value)} required><option value="" disabled>Choisir le niveau</option>{levels.map(x => <option key={x} value={x}>{x}</option>)}</select>{studentLevel && <><p><b>📚 Matières de {studentLevel} :</b></p><div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:10,maxHeight:220,overflow:'auto'}}>{subjects.filter(x=>x.level===studentLevel).length ? subjects.filter(x=>x.level===studentLevel).map(x => <label key={x.id} className="subject-option"><input type="checkbox" name="subject_ids" value={x.id}/><span>📚 {x.name}</span></label>) : <p className="empty">Aucune matière pour ce niveau.</p>}</div><p style={{fontSize:13,opacity:.7,marginTop:8}}>يمكن اختيار أكثر من مادة.</p></>}<div style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e5e5e5'}}><p><b>💰 Paiement à l'inscription</b></p><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><input name="payment_amount" type="number" min="0" step="0.01" placeholder="Montant (DH) — optionnel"/><input name="payment_date" type="date" defaultValue={moroccoDate()}/></div><small style={{opacity:.7}}>Si un montant est indiqué, le paiement sera enregistré automatiquement et valable 1 mois.</small></div><button>Ajouter l'élève</button></form></Box></div>}
-
       {tab === 'students_list' && <div className="cols"><Box title={`Liste des élèves (${students.length})`}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔎 Rechercher..." style={{ width: '100%', marginBottom: 12 }}/>{filteredStudents.map(s => <Row key={s.id} title={s.full_name} sub={`${s.level} • ${s.phone || ''} ${s.email ? '• ' + s.email : ''}`} action={() => router.push('/admin/eleve/' + s.id)} deleteAction={() => removeStudent(s.id)}/>) }{!filteredStudents.length && <p className="empty">Aucun élève.</p>}</Box>{selected && <Box title={`📋 ${selected.full_name}`}><p><b>Niveau:</b> {selected.level}</p><p><b>QR:</b></p>{selected.qr_code && <QRCodeSVG value={selected.qr_code}/>}<p><b>Absences:</b> {presence.filter(p => p.student_id === selected.id && p.status === 'Absent').length}</p><div style={{marginTop:16,paddingTop:14,borderTop:'1px solid #e5e5e5'}}><p><b>💰 Renouveler l'abonnement</b></p><input type="number" min="1" step="0.01" placeholder="Montant (DH)" value={renewAmount} onChange={e=>setRenewAmount(e.target.value)}/><input type="date" value={renewDate} onChange={e=>setRenewDate(e.target.value)}/><small style={{display:'block',opacity:.7,margin:'6px 0'}}>Le nouvel abonnement sera valable 1 mois à partir de la date choisie.</small><button onClick={renewSubscription}>🔄 Renouveler l'abonnement</button></div><button onClick={() => setSelected(null)}>Fermer</button></Box>}</div>}
-
       {tab === 'teachers' && <div className="cols"><Box title="Ajouter un professeur"><form className="form" onSubmit={addTeacher}><input name="name" placeholder="Nom complet" required/><input name="email" type="email" placeholder="Email"/><input name="phone" placeholder="Téléphone"/><select value={teacherLevel} onChange={e=>setTeacherLevel(e.target.value)} required><option value="" disabled>Choisir le niveau</option>{levels.map(x => <option key={x} value={x}>{x}</option>)}</select>{teacherLevel && <select name="subject_id" required><option value="">Choisir la matière</option>{subjects.filter(s=>s.level===teacherLevel).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>}<button>Ajouter</button></form></Box><Box title="Professeurs">{teachers.map(t => {const ts=subjects.filter(s=>s.teacher_id===t.id);return <Row key={t.id} title={t.full_name || t.name} sub={[t.email || t.phone || '', ...ts.map(s=>s.name+' • '+s.level)].filter(Boolean).join(' — ')} action={() => remove('teachers', t.id)}/>})}{!teachers.length && <p className="empty">Aucun professeur.</p>}</Box></div>}
-
       {tab === 'subjects' && <div className="cols"><Box title="Ajouter une matière"><form className="form" onSubmit={e => addSimple(e, 'subjects', { name: String(new FormData(e.currentTarget).get('name') || ''), level: String(new FormData(e.currentTarget).get('level') || '') })}><input name="name" placeholder="Nom de la matière" required/><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><button>Ajouter</button></form></Box><Box title="Matières">{subjects.map(s => <Row key={s.id} title={s.name} sub={s.level} action={() => remove('subjects', s.id)}/>)}{!subjects.length && <p className="empty">Aucune matière.</p>}</Box></div>}
-
       {tab === 'schedule' && <div className="cols"><Box title="Nouvelle séance"><form className="form" onSubmit={e => { const f = new FormData(e.currentTarget); return addSimple(e, 'schedules', { level: String(f.get('level')), subject_id: String(f.get('subject_id')) || null, teacher_id: String(f.get('teacher_id')) || null, day: String(f.get('day')), start_time: String(f.get('start_time')), end_time: String(f.get('end_time')), room: String(f.get('room') || '') || null }); }}><select name="level">{levels.map(x => <option key={x}>{x}</option>)}</select><select name="subject_id"><option value="">Matière</option>{subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><select name="teacher_id"><option value="">Professeur</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name || t.name}</option>)}</select><input name="day" placeholder="Jour" required/><input name="start_time" type="time" required/><input name="end_time" type="time" required/><input name="room" placeholder="Salle"/><button>Ajouter</button></form></Box><Box title="Emploi du temps">{schedule.map(s => <Row key={s.id} title={`${s.day} • ${s.start_time || ''}-${s.end_time || ''}`} sub={s.level} action={() => remove('schedules', s.id)}/>)}{!schedule.length && <p className="empty">Aucune séance.</p>}</Box></div>}
-
       {tab === 'qr' && <Box title="QR & Présence"><p>Pour démarrer une séance et scanner les élèves :</p><a className="button" href="/admin/scan">📷 Ouvrir le scanner</a>{selected && <><hr/><QRCodeSVG value={selected.qr_code || selected.id}/><button onClick={() => markAttendance('Présent')}>Marquer Présent</button><button onClick={() => markAttendance('Absent')}>Marquer Absent</button></>}</Box>}
-
       {tab === 'payments' && <div className="cols"><Box title="Nouveau paiement"><form className="form" onSubmit={addPayment}><select name="student_id" required><option value="">Élève</option>{students.map(s => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select><input name="amount" type="number" min="0" placeholder="Montant" required/><input name="paid_date" type="date" defaultValue={today}/><input name="note" placeholder="Note"/><button>Enregistrer le paiement</button></form></Box><Box title="Paiements">{payments.map(p => <Row key={p.id} title={`${students.find(s => s.id === p.student_id)?.full_name || 'Élève'} — ${p.amount} DH`} sub={`Valide jusqu'au ${p.valid_until || '-'}`} action={() => remove('payments', p.id)}/>)}{!payments.length && <p className="empty">Aucun paiement.</p>}</Box></div>}
-
       {tab === 'news' && <div className="cols"><Box title="Nouvelle annonce"><form className="form" onSubmit={e => { const f = new FormData(e.currentTarget); return addSimple(e, 'announcements', { title: String(f.get('title')), content: String(f.get('content')), is_published: true }); }}><input name="title" placeholder="Titre" required/><textarea name="content" placeholder="Contenu" required/><button>Publier</button></form></Box><Box title="Annonces">{news.map(n => <Row key={n.id} title={n.title} sub={n.content} action={() => remove('announcements', n.id)}/>)}</Box></div>}
-
       {tab === 'stats' && <div className="metrics"><Metric i="👨‍🎓" n={students.length} t="Élèves"/><Metric i="✅" n={presence.filter(p => p.status === 'Présent').length} t="Présences"/><Metric i="❌" n={presence.filter(p => p.status === 'Absent').length} t="Absences"/><Metric i="💰" n={payments.length} t="Paiements"/></div>}
       </>}
     </section>
