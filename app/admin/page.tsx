@@ -14,67 +14,34 @@ const tabs = [
 
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
 
-const EMAILJS_SERVICE_ID = 'service_hlu5obd';
-const EMAILJS_TEMPLATE_ID = 'template_49z03mm';
-const EMAILJS_PUBLIC_KEY = 'lpqXMoXXz9uf27_Em';
-
-async function getStudentQrUrl(student: any, studentUrl: string) {
-  const quickChartUrl = `https://quickchart.io/qr?size=300&format=png&text=${encodeURIComponent(studentUrl)}`;
-  const fileName = `${student.id}.png`;
-
-  try {
-    const imageResponse = await fetch(quickChartUrl);
-    if (!imageResponse.ok) throw new Error('QR PNG impossible à récupérer');
-    const blob = await imageResponse.blob();
-
-    const { error: uploadError } = await supabase.storage
-      .from('qr-codes')
-      .upload(fileName, blob, {
-        contentType: 'image/png',
-        upsert: true,
-        cacheControl: '31536000',
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from('qr-codes').getPublicUrl(fileName);
-    if (!data?.publicUrl) throw new Error('URL publique du QR introuvable');
-    return data.publicUrl;
-  } catch (storageError) {
-    console.error('QR Storage error:', storageError);
-    return quickChartUrl;
-  }
-}
-
-async function sendStudentQrEmail(student: any) {
+function openGmailDraft(student: any) {
   if (!student?.email || !student?.qr_code) return;
 
   const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
-  const qrUrl = await getStudentQrUrl(student, studentUrl);
-  const logoUrl = 'https://raw.githubusercontent.com/SKCRAZY/Centre-les-profs/main/logo.png';
-  
-  const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      service_id: EMAILJS_SERVICE_ID,
-      template_id: EMAILJS_TEMPLATE_ID,
-      user_id: EMAILJS_PUBLIC_KEY,
-      template_params: {
-        name: student.full_name,
-        email: student.email,
-        qr_code: student.qr_code,
-        qr_url: qrUrl,
-        logo_url: logoUrl,
-        student_url: studentUrl,
-      },
-    }),
-  });
+  const subject = 'Confirmation de votre inscription - Centre Les Profs';
+  const body = [
+    `Bonjour ${student.full_name},`,
+    '',
+    'Votre inscription au Centre Les Profs a été confirmée.',
+    '',
+    'Voici votre accès personnel à votre espace élève :',
+    studentUrl,
+    '',
+    `Votre code personnel : ${student.qr_code}`,
+    '',
+    'Conservez ce message pour retrouver facilement votre espace élève.',
+    '',
+    'Cordialement,',
+    'Centre Les Profs',
+  ].join('\n');
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || 'Email non envoyé');
-  }
+  const gmailUrl =
+    `https://mail.google.com/mail/?view=cm&fs=1` +
+    `&to=${encodeURIComponent(student.email)}` +
+    `&su=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(body)}`;
+
+  window.location.href = gmailUrl;
 }
 
 export default function Admin() {
@@ -193,12 +160,8 @@ export default function Admin() {
     }
 
     if (studentEmail && student?.qr_code) {
-      try {
-        await sendStudentQrEmail(student);
-        setError('✅ Élève ajouté et QR Code envoyé par email à ' + studentEmail);
-      } catch (mailError: any) {
-        setError('⚠️ Élève ajouté, mais l’email QR n’a pas été envoyé. ' + (mailError?.message || 'Erreur EmailJS.'));
-      }
+      openGmailDraft(student);
+      setError('✅ Élève ajouté. Gmail a été ouvert avec le message préparé pour ' + studentEmail + '.');
     }
 
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
