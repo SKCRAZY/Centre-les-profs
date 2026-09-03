@@ -42,18 +42,23 @@ export async function POST(request: Request) {
     if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY n’est pas configurée sur Vercel.' }, { status: 500 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
-    const db = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+    const publicKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const db = supabaseUrl && (serviceKey || publicKey) ? createClient(supabaseUrl, serviceKey || publicKey) : null;
     let studentId: string | null = null;
     let subjectId: string | null = null;
 
     if (code && db) {
-      const { data: portal } = await db.rpc('get_student_portal', { p_code: String(code).toUpperCase() });
+      const { data: portal, error: portalError } = await db.rpc('get_student_portal', { p_code: String(code).toUpperCase() });
+      if (portalError) throw portalError;
       const student = portal?.[0];
       if (!student?.id) return NextResponse.json({ error: 'Code élève introuvable.' }, { status: 404 });
       studentId = student.id;
-      const { data: subjectRow } = subject ? await db.from('subjects').select('id').eq('level', student.level).eq('name', subject).maybeSingle() : { data: null };
-      subjectId = subjectRow?.id || null;
+      if (subject) {
+        const { data: subjectRow, error: subjectError } = await db.from('subjects').select('id').eq('level', student.level).eq('name', subject).maybeSingle();
+        if (subjectError) throw subjectError;
+        subjectId = subjectRow?.id || null;
+      }
     }
 
     const labels: Record<string,string> = { tutor:'AI Tutor', flashcards:'AI Flashcards', test:'AI Practice Test' };
@@ -92,12 +97,13 @@ export async function POST(request: Request) {
         if (e1) throw e1;
         const blocks = content.split(/(?=\d+[.)]\s)/).map(x=>x.trim()).filter(x=>/^\d+[.)]\s/.test(x));
         const questions = blocks.filter(x=>!/^CORRIGÉ/i.test(x)).map((block,index)=>{const lines=block.split('\n').map(x=>x.trim()).filter(Boolean);return {test_id:test.id,question:lines[0].replace(/^\d+[.)]\s*/,''),options:lines.slice(1).filter(x=>/^[A-D][.)]/i.test(x)),position:index};});
-        if (questions.length) await db.from('ai_practice_questions').insert(questions);
+        if (questions.length) { const { error:e2 } = await db.from('ai_practice_questions').insert(questions); if (e2) throw e2; }
         saved = true;
       }
     }
     return NextResponse.json({ title:labels[tool] || 'AI Study', content, saved });
   } catch (error) {
+    console.error('AI Study server error:', error);
     return NextResponse.json({ error:error instanceof Error ? error.message : 'Erreur serveur.' }, { status:500 });
   }
 }
