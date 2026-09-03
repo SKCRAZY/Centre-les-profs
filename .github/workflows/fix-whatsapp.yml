@@ -1,0 +1,91 @@
+name: Fix WhatsApp direct open
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message != 'fix: open WhatsApp directly after adding student'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch admin page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/admin/page.tsx')
+          s = p.read_text()
+
+          old_helper = """const openWhatsApp = (phone: string | null) => {
+            if (!phone) return;
+            let number = phone.replace(/\\D/g, '');
+            if (number.startsWith('0')) number = '212' + number.slice(1);
+            if (!number.startsWith('212') && phone.trim().startsWith('+')) number = phone.replace(/\\D/g, '');
+            if (!number) return;
+            window.open(`https://wa.me/${number}`, '_blank');
+          };"""
+
+          new_helper = """const normalizeWhatsAppPhone = (phone: string | null) => {
+            if (!phone) return '';
+            let number = phone.replace(/\\D/g, '');
+            if (number.startsWith('00')) number = number.slice(2);
+            if (number.startsWith('0')) number = '212' + number.slice(1);
+            return number;
+          };"""
+
+          if old_helper not in s:
+              raise SystemExit('Expected WhatsApp helper not found')
+          s = s.replace(old_helper, new_helper, 1)
+
+          old_start = """  const addStudent = async (e: any) => {
+    e.preventDefault(); setError('');
+    const f = new FormData(e.currentTarget);
+    const full_name = String(f.get('name') || '').trim();
+    const studentEmail = String(f.get('email') || '').trim();
+    const level = String(f.get('level') || '');
+    const phone = String(f.get('phone') || '').trim() || null;"""
+
+          new_start = """  const addStudent = async (e: any) => {
+    e.preventDefault(); setError('');
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    const full_name = String(f.get('name') || '').trim();
+    const studentEmail = String(f.get('email') || '').trim();
+    const level = String(f.get('level') || '');
+    const phone = String(f.get('phone') || '').trim() || null;
+    const whatsappNumber = normalizeWhatsAppPhone(phone);
+    const whatsappWindow = whatsappNumber ? window.open('about:blank', '_blank') : null;"""
+
+          if old_start not in s:
+              raise SystemExit('Expected addStudent start not found')
+          s = s.replace(old_start, new_start, 1)
+
+          old_end = """    e.currentTarget.reset(); setStudentLevel(''); await refresh();
+    openWhatsApp(phone);
+  };"""
+
+          new_end = """    form.reset(); setStudentLevel(''); await refresh();
+    if (whatsappWindow && whatsappNumber) {
+      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;
+    }
+  };"""
+
+          if old_end not in s:
+              raise SystemExit('Expected addStudent end not found')
+          s = s.replace(old_end, new_end, 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/admin/page.tsx
+          git diff --cached --quiet || git commit -m "fix: open WhatsApp directly after adding student"
+          git push
