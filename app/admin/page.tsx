@@ -14,36 +14,6 @@ const tabs = [
 
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
 
-function openGmailDraft(student: any) {
-  if (!student?.email || !student?.qr_code) return;
-
-  const studentUrl = `${window.location.origin}/eleve/${encodeURIComponent(student.qr_code)}`;
-  const subject = 'Confirmation de votre inscription - Centre Les Profs';
-  const body = [
-    `Bonjour ${student.full_name},`,
-    '',
-    'Votre inscription au Centre Les Profs a été confirmée.',
-    '',
-    'Voici votre accès personnel à votre espace élève :',
-    studentUrl,
-    '',
-    `Votre code personnel : ${student.qr_code}`,
-    '',
-    'Conservez ce message pour retrouver facilement votre espace élève.',
-    '',
-    'Cordialement,',
-    'Centre Les Profs',
-  ].join('\n');
-
-  const gmailUrl =
-    `https://mail.google.com/mail/?view=cm&fs=1` +
-    `&to=${encodeURIComponent(student.email)}` +
-    `&su=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(body)}`;
-
-  window.location.href = gmailUrl;
-}
-
 export default function Admin() {
   const [tab, setTab] = useState('home');
   const [authReady, setAuthReady] = useState(false);
@@ -157,11 +127,6 @@ export default function Admin() {
         valid_until: valid.toISOString().slice(0, 10)
       });
       if (payError) { setError('Élève ajouté, mais paiement non enregistré: ' + payError.message); return; }
-    }
-
-    if (studentEmail && student?.qr_code) {
-      openGmailDraft(student);
-      setError('✅ Élève ajouté. Gmail a été ouvert avec le message préparé pour ' + studentEmail + '.');
     }
 
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
