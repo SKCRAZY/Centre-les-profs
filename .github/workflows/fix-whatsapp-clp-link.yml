@@ -1,0 +1,38 @@
+name: Fix WhatsApp CLP link
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace CLP text with student page link
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/admin/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = "🎓 CLP: ${clp}\\n"
+          new = "🎓 CLP: ${clp !== 'Non disponible' ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : 'Non disponible'}\\n"
+          if old not in s:
+              raise SystemExit('CLP line not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/admin/page.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes needed'
+          else
+            git commit -m 'fix: send CLP as student page link'
+            git push
+          fi
