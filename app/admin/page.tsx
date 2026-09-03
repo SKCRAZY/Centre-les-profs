@@ -14,6 +14,15 @@ const tabs = [
 
 const moroccoDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(new Date());
 
+const openWhatsApp = (phone: string | null) => {
+  if (!phone) return;
+  let number = phone.replace(/\D/g, '');
+  if (number.startsWith('0')) number = '212' + number.slice(1);
+  if (!number.startsWith('212') && phone.trim().startsWith('+')) number = phone.replace(/\D/g, '');
+  if (!number) return;
+  window.open(`https://wa.me/${number}`, '_blank');
+};
+
 export default function Admin() {
   const [tab, setTab] = useState('home');
   const [authReady, setAuthReady] = useState(false);
@@ -130,6 +139,7 @@ export default function Admin() {
     }
 
     e.currentTarget.reset(); setStudentLevel(''); await refresh();
+    openWhatsApp(phone);
   };
 
   const renewSubscription = async () => {
