@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   fix:
-    if: github.event.head_commit.message != 'fix: open WhatsApp directly after adding student'
+    if: github.event.head_commit.message != 'fix: WhatsApp student message with CLP and details'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,64 +21,24 @@ jobs:
           p = Path('app/admin/page.tsx')
           s = p.read_text()
 
-          old_helper = """const openWhatsApp = (phone: string | null) => {
-            if (!phone) return;
-            let number = phone.replace(/\\D/g, '');
-            if (number.startsWith('0')) number = '212' + number.slice(1);
-            if (!number.startsWith('212') && phone.trim().startsWith('+')) number = phone.replace(/\\D/g, '');
-            if (!number) return;
-            window.open(`https://wa.me/${number}`, '_blank');
-          };"""
+          old = """    e.currentTarget.reset(); setStudentLevel(''); await refresh();
+    if (whatsappWindow && whatsappNumber) whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;"""
 
-          new_helper = """const normalizeWhatsAppPhone = (phone: string | null) => {
-            if (!phone) return '';
-            let number = phone.replace(/\\D/g, '');
-            if (number.startsWith('00')) number = number.slice(2);
-            if (number.startsWith('0')) number = '212' + number.slice(1);
-            return number;
-          };"""
-
-          if old_helper not in s:
-              raise SystemExit('Expected WhatsApp helper not found')
-          s = s.replace(old_helper, new_helper, 1)
-
-          old_start = """  const addStudent = async (e: any) => {
-    e.preventDefault(); setError('');
-    const f = new FormData(e.currentTarget);
-    const full_name = String(f.get('name') || '').trim();
-    const studentEmail = String(f.get('email') || '').trim();
-    const level = String(f.get('level') || '');
-    const phone = String(f.get('phone') || '').trim() || null;"""
-
-          new_start = """  const addStudent = async (e: any) => {
-    e.preventDefault(); setError('');
-    const form = e.currentTarget;
-    const f = new FormData(form);
-    const full_name = String(f.get('name') || '').trim();
-    const studentEmail = String(f.get('email') || '').trim();
-    const level = String(f.get('level') || '');
-    const phone = String(f.get('phone') || '').trim() || null;
-    const whatsappNumber = normalizeWhatsAppPhone(phone);
-    const whatsappWindow = whatsappNumber ? window.open('about:blank', '_blank') : null;"""
-
-          if old_start not in s:
-              raise SystemExit('Expected addStudent start not found')
-          s = s.replace(old_start, new_start, 1)
-
-          old_end = """    e.currentTarget.reset(); setStudentLevel(''); await refresh();
-    openWhatsApp(phone);
-  };"""
-
-          new_end = """    form.reset(); setStudentLevel(''); await refresh();
-    if (whatsappWindow && whatsappNumber) {
-      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;
+          new = """    if (whatsappWindow && whatsappNumber) {
+      const subjectNames = subjectIds
+        .map((id) => subjects.find((subject: any) => subject.id === id)?.name)
+        .filter(Boolean)
+        .join(', ') || 'Aucune';
+      const clp = student.qr_code || 'Non disponible';
+      const qrLink = clp ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : '';
+      const message = `السلام عليكم 👋%0A%0Aمرحباً بكم في Centre Les Profs 📚%0A%0Aتم تسجيل التلميذ بنجاح ✅%0A%0A👤 اسم التلميذ: ${full_name}%0A📱 رقم الهاتف: ${phone || 'غير متوفر'}%0A🎓 CLP: ${clp}%0A📚 المواد: ${subjectNames}%0A💰 المبلغ المؤدى: ${amount || 0} DH%0A📲 QR Code: ${qrLink}%0A%0Aنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨%0A%0Aشكراً لثقتكم في Centre Les Profs ❤️`;
+      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${message}`;
     }
-  };"""
+    e.currentTarget.reset(); setStudentLevel(''); await refresh();"""
 
-          if old_end not in s:
-              raise SystemExit('Expected addStudent end not found')
-          s = s.replace(old_end, new_end, 1)
-
+          if old not in s:
+              raise SystemExit('Expected WhatsApp ending not found')
+          s = s.replace(old, new, 1)
           p.write_text(s)
           PY
 
@@ -87,5 +47,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/admin/page.tsx
-          git diff --cached --quiet || git commit -m "fix: open WhatsApp directly after adding student"
+          git diff --cached --quiet || git commit -m "fix: WhatsApp student message with CLP and details"
           git push
