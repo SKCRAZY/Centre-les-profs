@@ -3,45 +3,42 @@ name: Fix WhatsApp student message
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   fix:
-    if: github.event.head_commit.message != 'fix: WhatsApp student message with CLP and details'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Patch admin page
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('app/admin/page.tsx')
           s = p.read_text()
-
           marker = "    e.currentTarget.reset(); setStudentLevel(''); await refresh();"
+          if 'const subjectNames = subjectIds' in s:
+              print('Already patched')
+              raise SystemExit(0)
           if marker not in s:
               raise SystemExit('Expected addStudent ending not found')
-
-          if 'const subjectNames = subjectIds' in s:
-              raise SystemExit('WhatsApp message patch already exists')
-
-          new = """    if (whatsappWindow && whatsappNumber) {
+          new = '''    if (whatsappWindow && whatsappNumber) {
       const subjectNames = subjectIds
         .map((id) => subjects.find((subject: any) => String(subject.id) === String(id))?.name)
         .filter(Boolean)
         .join('، ') || 'Aucune';
       const clp = student.qr_code || 'Non disponible';
       const qrLink = clp ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : '';
-      const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
+      const message = `السلام عليكم 👋\\n\\nمرحباً بكم في Centre Les Profs 📚\\n\\nتم تسجيل التلميذ بنجاح ✅\\n\\n👤 اسم التلميذ: ${full_name}\\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\\n🎓 CLP: ${clp}\\n📚 المواد: ${subjectNames}\\n💰 المبلغ المؤدى: ${amount || 0} DH\\n📲 QR Code: ${qrLink || 'غير متوفر'}\\n\\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\\n\\nشكراً لثقتكم في Centre Les Profs ❤️`;
       whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     }
-    e.currentTarget.reset(); setStudentLevel(''); await refresh();"""
-
-          s = s.replace(marker, new, 1)
-          p.write_text(s)
+    e.currentTarget.reset(); setStudentLevel(''); await refresh();'''
+          p.write_text(s.replace(marker, new, 1))
           PY
 
       - name: Commit fix
