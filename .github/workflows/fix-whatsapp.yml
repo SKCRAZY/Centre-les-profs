@@ -1,4 +1,4 @@
-name: Fix WhatsApp direct open
+name: Fix WhatsApp student message
 
 on:
   push:
@@ -21,24 +21,26 @@ jobs:
           p = Path('app/admin/page.tsx')
           s = p.read_text()
 
-          old = """    e.currentTarget.reset(); setStudentLevel(''); await refresh();
-    if (whatsappWindow && whatsappNumber) whatsappWindow.location.href = `https://wa.me/${whatsappNumber}`;"""
+          marker = "    e.currentTarget.reset(); setStudentLevel(''); await refresh();"
+          if marker not in s:
+              raise SystemExit('Expected addStudent ending not found')
+
+          if 'const subjectNames = subjectIds' in s:
+              raise SystemExit('WhatsApp message patch already exists')
 
           new = """    if (whatsappWindow && whatsappNumber) {
       const subjectNames = subjectIds
-        .map((id) => subjects.find((subject: any) => subject.id === id)?.name)
+        .map((id) => subjects.find((subject: any) => String(subject.id) === String(id))?.name)
         .filter(Boolean)
-        .join(', ') || 'Aucune';
+        .join('، ') || 'Aucune';
       const clp = student.qr_code || 'Non disponible';
       const qrLink = clp ? `${window.location.origin}/eleve/${encodeURIComponent(clp)}` : '';
-      const message = `السلام عليكم 👋%0A%0Aمرحباً بكم في Centre Les Profs 📚%0A%0Aتم تسجيل التلميذ بنجاح ✅%0A%0A👤 اسم التلميذ: ${full_name}%0A📱 رقم الهاتف: ${phone || 'غير متوفر'}%0A🎓 CLP: ${clp}%0A📚 المواد: ${subjectNames}%0A💰 المبلغ المؤدى: ${amount || 0} DH%0A📲 QR Code: ${qrLink}%0A%0Aنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨%0A%0Aشكراً لثقتكم في Centre Les Profs ❤️`;
-      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${message}`;
+      const message = `السلام عليكم 👋\n\nمرحباً بكم في Centre Les Profs 📚\n\nتم تسجيل التلميذ بنجاح ✅\n\n👤 اسم التلميذ: ${full_name}\n📱 رقم الهاتف: ${phone || 'غير متوفر'}\n🎓 CLP: ${clp}\n📚 المواد: ${subjectNames}\n💰 المبلغ المؤدى: ${amount || 0} DH\n📲 QR Code: ${qrLink || 'غير متوفر'}\n\nنتمنى له مسيرة دراسية موفقة ونجاحاً دائماً 🎓✨\n\nشكراً لثقتكم في Centre Les Profs ❤️`;
+      whatsappWindow.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     }
     e.currentTarget.reset(); setStudentLevel(''); await refresh();"""
 
-          if old not in s:
-              raise SystemExit('Expected WhatsApp ending not found')
-          s = s.replace(old, new, 1)
+          s = s.replace(marker, new, 1)
           p.write_text(s)
           PY
 
