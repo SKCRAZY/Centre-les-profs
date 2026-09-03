@@ -1,0 +1,70 @@
+name: Add responsive admin menu
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch admin navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/admin/page.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = "  const [selected, setSelected] = useState<any>(null);\n  const router = useRouter();"
+          new = "  const [selected, setSelected] = useState<any>(null);\n  const [menuOpen, setMenuOpen] = useState(false);\n  const router = useRouter();"
+          if old in s and 'const [menuOpen' not in s:
+              s = s.replace(old, new, 1)
+          old = "onClick={() => setTab(t[0])}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className=\"public\" href=\"/\">↗ Site public</a><button className=\"logout\""
+          new = "onClick={() => { setTab(t[0]); setMenuOpen(false); }}><i>{t[1]}</i><span>{t[2]}</span></button>)}<a className=\"public\" href=\"/\">↗ Site public</a><button className=\"logout\""
+          if old in s:
+              s = s.replace(old, new, 1)
+          old = "  return <main className=\"dash\">\n    <aside>"
+          new = "  return <main className=\"dash\">\n    <button className=\"menuToggle\" type=\"button\" onClick={() => setMenuOpen(v => !v)} aria-label=\"Menu\">☰</button>\n    {menuOpen && <button className=\"menuOverlay\" type=\"button\" aria-label=\"Fermer le menu\" onClick={() => setMenuOpen(false)} />}\n    <aside className={menuOpen ? 'menuOpen' : ''}>"
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('app/globals.css')
+          s = p.read_text(encoding='utf-8')
+          css = r'''
+
+/* Responsive admin hamburger menu */
+.menuToggle,.menuOverlay{display:none}
+@media(max-width:900px){
+  .menuToggle{display:grid;place-items:center;position:fixed;top:14px;left:14px;width:46px;height:46px;border:1px solid #f5bf28;border-radius:12px;background:#16070a;color:#fff;font-size:25px;z-index:100;cursor:pointer;box-shadow:0 8px 24px #0005}
+  .menuOverlay{display:block;position:fixed;inset:0;background:#0008;border:0;z-index:89;cursor:pointer}
+  .dash aside{z-index:90!important;transition:transform .25s ease;box-shadow:10px 0 35px #0008}
+  .dash aside:not(.menuOpen){transform:translateX(-100%)}
+  .dash aside.menuOpen{transform:translateX(0)}
+  .dash aside nav{display:flex;flex-direction:column;overflow:auto;width:100%;height:calc(100% - 76px);gap:2px}
+  .dash aside nav>button{flex:0 0 auto!important;width:100%!important;height:auto!important;text-align:left!important;display:block!important;padding:13px 14px!important}
+  .dash aside nav>button i{margin-right:12px!important}
+  .dash aside nav>button span{display:inline!important}
+  .dash aside .public{display:block!important;margin-top:auto}
+  .dash aside .logout{display:block!important}
+  .dash .content{margin-left:0!important;width:100%!important;padding-top:74px!important}
+}
+'''
+          if '/* Responsive admin hamburger menu */' not in s:
+              s += css
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/admin/page.tsx app/globals.css
+          if git diff --cached --quiet; then
+            echo 'No changes needed'
+          else
+            git commit -m 'feat: add responsive admin hamburger menu'
+            git push
+          fi
