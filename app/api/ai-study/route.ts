@@ -4,15 +4,26 @@ function extractText(value: any): string {
   if (!value) return '';
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) return value.map(extractText).filter(Boolean).join('\n');
-  if (typeof value === 'object') {
-    const direct = ['text', 'output_text', 'content', 'parts', 'output', 'response', 'message'];
-    for (const key of direct) {
-      if (key in value) {
-        const result = extractText(value[key]);
-        if (result) return result;
-      }
-    }
-    for (const key of Object.keys(value)) {
+  if (typeof value !== 'object') return '';
+
+  // Gemini Interactions API returns generated text inside:
+  // steps[] -> model_output -> content[] -> { type: 'text', text: '...' }
+  if (Array.isArray(value.steps)) {
+    const modelText = value.steps
+      .filter((step: any) => step?.type === 'model_output')
+      .map((step: any) => extractText(step?.content))
+      .filter(Boolean)
+      .join('\n');
+    if (modelText) return modelText;
+  }
+
+  if (value.type === 'text' && typeof value.text === 'string') return value.text;
+  if (typeof value.output_text === 'string' && value.output_text.trim()) return value.output_text;
+
+  // Avoid returning IDs such as v1_... from the interaction object.
+  const keys = ['content', 'parts', 'output', 'outputs', 'response', 'message'];
+  for (const key of keys) {
+    if (key in value) {
       const result = extractText(value[key]);
       if (result) return result;
     }
