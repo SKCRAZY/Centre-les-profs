@@ -3,90 +3,22 @@ import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, ActivityInd
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from './src/lib/supabase';
 
+type Tab = 'home' | 'ai' | 'presence' | 'profile';
+const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || '';
+
 export default function App() {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [student, setStudent] = useState<any>(null);
-
-  const openStudentSpace = async () => {
-    const normalized = code.trim().toUpperCase();
-    if (!normalized) return Alert.alert('Code requis', 'Entre ton code élève.');
-    setLoading(true);
-    const { data, error } = await supabase.rpc('get_student_portal', { p_code: normalized });
-    setLoading(false);
-    if (error || !data?.student) {
-      Alert.alert('Code invalide', 'Impossible de trouver cet espace élève.');
-      return;
-    }
-    setStudent(data.student);
-  };
-
-  if (student) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="auto" />
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.brand}>Centre Les Profs</Text>
-          <Text style={styles.title}>Bonjour 👋</Text>
-          <Text style={styles.name}>{student.full_name || 'Élève'}</Text>
-          <View style={styles.card}>
-            <Text style={styles.label}>🎓 Niveau</Text>
-            <Text style={styles.value}>{student.level || '-'}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>📚 Matières</Text>
-            <Text style={styles.value}>{student.subjects?.length ? student.subjects.join(', ') : 'Aucune matière'}</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.label}>📅 Présences</Text>
-            <Text style={styles.value}>{student.attendance?.length ?? 0} enregistrements</Text>
-          </View>
-          <Pressable style={styles.secondaryButton} onPress={() => setStudent(null)}>
-            <Text style={styles.secondaryText}>Changer de compte</Text>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="auto" />
-      <View style={styles.content}>
-        <Text style={styles.brand}>Centre Les Profs</Text>
-        <Text style={styles.title}>Espace Élève</Text>
-        <Text style={styles.subtitle}>Connecte-toi avec ton code élève</Text>
-        <TextInput
-          value={code}
-          onChangeText={setCode}
-          autoCapitalize="characters"
-          placeholder="Ex. CLP-1234"
-          placeholderTextColor="#999"
-          style={styles.input}
-        />
-        <Pressable style={styles.button} onPress={openStudentSpace} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Entrer dans mon espace</Text>}
-        </Pressable>
-        <Text style={styles.footer}>Site web + application mobile indépendants · même plateforme Centre Les Profs</Text>
-      </View>
-    </SafeAreaView>
-  );
+  const [code, setCode] = useState(''); const [loading, setLoading] = useState(false); const [student, setStudent] = useState<any>(null);
+  const [tab, setTab] = useState<Tab>('home'); const [subject, setSubject] = useState(''); const [aiLoading, setAiLoading] = useState(false); const [aiResult, setAiResult] = useState('');
+  const openStudentSpace = async () => { const normalized = code.trim().toUpperCase(); if (!normalized) return Alert.alert('Code requis','Entre ton code élève.'); setLoading(true); const {data,error}=await supabase.rpc('get_student_portal',{p_code:normalized}); setLoading(false); if(error||!data?.student)return Alert.alert('Code invalide','Impossible de trouver cet espace élève.'); setStudent(data.student); };
+  const generateAI = async (type:'flashcards'|'practice_test'|'tutor') => { if(!SITE_URL||!student?.level||!subject)return Alert.alert('Configuration','Sélectionne une matière et configure EXPO_PUBLIC_SITE_URL.'); setAiLoading(true);setAiResult('');try{const r=await fetch(`${SITE_URL.replace(/\/$/,'')}/api/ai-study`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,level:student.level,subject,studentCode:code.trim().toUpperCase()})});const j=await r.json();if(!r.ok)throw new Error(j?.error||'Erreur serveur');setAiResult(j.content||'Résultat généré.')}catch(e:any){Alert.alert('AI Study',e.message||'Une erreur est survenue.')}finally{setAiLoading(false)}};
+  if(!student)return <SafeAreaView style={styles.container}><StatusBar style="dark"/><View style={styles.login}><View style={styles.logo}><Text style={styles.logoText}>CLP</Text></View><Text style={styles.brand}>Centre Les Profs</Text><Text style={styles.title}>Espace Élève</Text><Text style={styles.subtitle}>Ton espace d'apprentissage, partout avec toi.</Text><TextInput value={code} onChangeText={setCode} autoCapitalize="characters" placeholder="CODE ÉLÈVE" placeholderTextColor="#999" style={styles.input}/><Pressable style={styles.button} onPress={openStudentSpace} disabled={loading}>{loading?<ActivityIndicator color="#fff"/>:<Text style={styles.buttonText}>Continuer →</Text>}</Pressable><Text style={styles.small}>Connexion sécurisée · Centre Les Profs</Text></View></SafeAreaView>;
+  const subjects=Array.isArray(student.subjects)?student.subjects:[];
+  const home=<ScrollView contentContainerStyle={styles.page}><View style={styles.header}><View><Text style={styles.hello}>Bonjour 👋</Text><Text style={styles.name}>{student.full_name||'Élève'}</Text></View><View style={styles.avatar}><Text style={styles.avatarText}>{(student.full_name||'E')[0].toUpperCase()}</Text></View></View><View style={styles.levelCard}><Text style={styles.levelLabel}>🎓 TON NIVEAU</Text><Text style={styles.level}>{student.level||'-'}</Text><Text style={styles.levelHint}>Ton programme est adapté à ton niveau.</Text></View><Text style={styles.section}>Mon espace</Text><View style={styles.grid}><Card icon="🤖" title="AI Study" text="Apprends avec l'IA" onPress={()=>setTab('ai')}/><Card icon="📚" title="Matières" text={`${subjects.length} matière(s)`} onPress={()=>setTab('profile')}/><Card icon="📅" title="Présences" text={`${student.attendance?.length??0} séance(s)`} onPress={()=>setTab('presence')}/><Card icon="💳" title="Paiements" text={`${student.payments?.length??0} paiement(s)`} onPress={()=>Alert.alert('Paiements','Ton historique de paiements est disponible dans ton espace.')}/></View></ScrollView>;
+  const ai=<ScrollView contentContainerStyle={styles.page}><Text style={styles.back} onPress={()=>setTab('home')}>‹ Accueil</Text><Text style={styles.pageTitle}>🤖 AI Study</Text><Text style={styles.aiHint}>🎓 Niveau : {student.level||'-'}</Text><Text style={styles.section}>Choisis ta matière</Text><View style={styles.subjectWrap}>{subjects.map((s:any,i:number)=>{const label=typeof s==='string'?s:s.name||s.subject_name;return <Pressable key={i} onPress={()=>setSubject(label)} style={[styles.subject,subject===label&&styles.subjectActive]}><Text style={subject===label?styles.subjectTextActive:styles.subjectText}>{label}</Text></Pressable>})}</View><View style={styles.aiGrid}><Action title="🃏 Flashcards" sub="Tout le chapitre" onPress={()=>generateAI('flashcards')}/><Action title="📝 Practice Test" sub="Teste tes connaissances" onPress={()=>generateAI('practice_test')}/><Action title="💬 AI Tutor" sub="Explique-moi le cours" onPress={()=>generateAI('tutor')}/></View>{aiLoading&&<ActivityIndicator size="large" style={{marginTop:24}}/>}{!!aiResult&&<View style={styles.result}><Text style={styles.resultText}>{aiResult}</Text></View>}</ScrollView>;
+  const presence=<ScrollView contentContainerStyle={styles.page}><Text style={styles.back} onPress={()=>setTab('home')}>‹ Accueil</Text><Text style={styles.pageTitle}>📅 Présences</Text>{(student.attendance||[]).length?student.attendance.map((a:any,i:number)=><View style={styles.row} key={i}><Text style={styles.rowTitle}>{a.date||a.session_date||`Séance ${i+1}`}</Text><Text style={styles.rowValue}>{a.status||a.presence||'Présent'}</Text></View>):<View style={styles.empty}><Text style={styles.emptyIcon}>📅</Text><Text style={styles.emptyTitle}>Aucune présence</Text></View>}</ScrollView>;
+  const profile=<ScrollView contentContainerStyle={styles.page}><Text style={styles.back} onPress={()=>setTab('home')}>‹ Accueil</Text><Text style={styles.pageTitle}>📚 Mes matières</Text>{subjects.length?subjects.map((s:any,i:number)=><View style={styles.row} key={i}><Text style={styles.rowTitle}>{typeof s==='string'?s:s.name||s.subject_name}</Text><Text style={styles.rowValue}>✓</Text></View>):<View style={styles.empty}><Text style={styles.emptyIcon}>📚</Text><Text style={styles.emptyTitle}>Aucune matière</Text></View>}</ScrollView>;
+  return <SafeAreaView style={styles.container}><StatusBar style="dark"/><View style={styles.body}>{tab==='home'?home:tab==='ai'?ai:tab==='presence'?presence:profile}</View><View style={styles.nav}>{[['home','⌂','Accueil'],['ai','✦','AI Study'],['presence','◷','Présences'],['profile','○','Profil']].map(([key,icon,label])=><Pressable key={key} onPress={()=>setTab(key as Tab)} style={styles.navItem}><Text style={[styles.navIcon,tab===key&&styles.navActive]}>{icon}</Text><Text style={[styles.navText,tab===key&&styles.navActive]}>{label}</Text></Pressable>)}</View></SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f7f7' },
-  content: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  brand: { fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 28 },
-  title: { fontSize: 32, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
-  name: { fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 22 },
-  subtitle: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 28 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 14, padding: 16, fontSize: 17, marginBottom: 14 },
-  button: { backgroundColor: '#111', borderRadius: 14, padding: 17, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 18, marginBottom: 12 },
-  label: { fontSize: 14, color: '#777', marginBottom: 6 },
-  value: { fontSize: 17, fontWeight: '600' },
-  secondaryButton: { marginTop: 18, alignItems: 'center', padding: 14 },
-  secondaryText: { fontWeight: '700' },
-  footer: { textAlign: 'center', color: '#888', fontSize: 12, marginTop: 28 }
-});
+function Card({icon,title,text,onPress}:{icon:string;title:string;text:string;onPress:()=>void}){return <Pressable style={styles.card} onPress={onPress}><Text style={styles.cardIcon}>{icon}</Text><Text style={styles.cardTitle}>{title}</Text><Text style={styles.cardText}>{text}</Text></Pressable>}
+function Action({title,sub,onPress}:{title:string;sub:string;onPress:()=>void}){return <Pressable style={styles.action} onPress={onPress}><Text style={styles.actionTitle}>{title}</Text><Text style={styles.actionSub}>{sub}</Text></Pressable>}
+const styles=StyleSheet.create({container:{flex:1,backgroundColor:'#f6f7fb'},body:{flex:1},login:{flex:1,justifyContent:'center',padding:28},logo:{width:72,height:72,borderRadius:22,backgroundColor:'#111',alignSelf:'center',alignItems:'center',justifyContent:'center',marginBottom:18},logoText:{color:'#fff',fontSize:22,fontWeight:'900'},brand:{textAlign:'center',fontSize:18,fontWeight:'800'},title:{fontSize:34,fontWeight:'900',textAlign:'center',marginTop:26},subtitle:{fontSize:15,color:'#777',textAlign:'center',marginTop:10,marginBottom:30},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e2e2e2',borderRadius:16,padding:17,fontSize:16,letterSpacing:1,marginBottom:14},button:{backgroundColor:'#111',borderRadius:16,padding:18,alignItems:'center'},buttonText:{color:'#fff',fontWeight:'800',fontSize:16},small:{textAlign:'center',color:'#999',fontSize:12,marginTop:24},page:{padding:22,paddingBottom:35},header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:22},hello:{color:'#777',fontSize:14},name:{fontSize:25,fontWeight:'900',marginTop:3},avatar:{width:48,height:48,borderRadius:16,backgroundColor:'#111',alignItems:'center',justifyContent:'center'},avatarText:{color:'#fff',fontSize:19,fontWeight:'900'},levelCard:{backgroundColor:'#111',borderRadius:22,padding:22,marginBottom:25},levelLabel:{color:'#aaa',fontSize:11,fontWeight:'800',letterSpacing:1},level:{color:'#fff',fontSize:28,fontWeight:'900',marginTop:8},levelHint:{color:'#bbb',fontSize:12,marginTop:6},section:{fontSize:18,fontWeight:'900',marginBottom:13},grid:{flexDirection:'row',flexWrap:'wrap',gap:12},card:{width:'47%',backgroundColor:'#fff',borderRadius:20,padding:17,minHeight:145},cardIcon:{fontSize:28,marginBottom:15},cardTitle:{fontSize:16,fontWeight:'900'},cardText:{fontSize:12,color:'#888',marginTop:5},back:{fontSize:15,fontWeight:'800',marginBottom:18},pageTitle:{fontSize:29,fontWeight:'900',marginBottom:12},aiHint:{backgroundColor:'#fff',padding:14,borderRadius:14,color:'#555',marginBottom:20},subjectWrap:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:22},subject:{paddingVertical:10,paddingHorizontal:14,borderRadius:30,backgroundColor:'#fff',borderWidth:1,borderColor:'#e4e4e4'},subjectActive:{backgroundColor:'#111',borderColor:'#111'},subjectText:{fontWeight:'700'},subjectTextActive:{color:'#fff',fontWeight:'800'},aiGrid:{gap:10},action:{backgroundColor:'#fff',borderRadius:18,padding:18},actionTitle:{fontSize:16,fontWeight:'900'},actionSub:{fontSize:12,color:'#888',marginTop:5},result:{backgroundColor:'#fff',borderRadius:18,padding:18,marginTop:20},resultText:{fontSize:15,lineHeight:23},row:{backgroundColor:'#fff',borderRadius:16,padding:17,marginBottom:9,flexDirection:'row',justifyContent:'space-between'},rowTitle:{fontWeight:'800',flex:1},rowValue:{fontWeight:'800'},empty:{alignItems:'center',paddingTop:80},emptyIcon:{fontSize:45},emptyTitle:{fontSize:18,fontWeight:'800',marginTop:10},nav:{height:70,backgroundColor:'#fff',borderTopWidth:1,borderTopColor:'#eee',flexDirection:'row',justifyContent:'space-around',paddingTop:8},navItem:{alignItems:'center',flex:1},navIcon:{fontSize:22,color:'#999'},navText:{fontSize:10,color:'#999',marginTop:2,fontWeight:'700'},navActive:{color:'#111'}});
