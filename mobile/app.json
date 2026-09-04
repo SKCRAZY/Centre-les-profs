@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Centre Les Profs",
+    "slug": "centre-les-profs",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.centrelesprofs.app",
+      "versionCode": 1
+    },
+    "ios": {
+      "bundleIdentifier": "com.centrelesprofs.app"
+    }
+  }
+}
